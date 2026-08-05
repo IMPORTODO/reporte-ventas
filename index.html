@@ -416,17 +416,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   async function leerCostosDesdeGoogle(sheetId){
-    let filasMapeo = null;
+    let mapping = null;
     let ultimoError = null;
     for (const candidato of MAPING_CANDIDATES_ORIGINALES){
       try {
         const csv = await fetchHojaCSV(sheetId, candidato);
-        filasMapeo = csvATabla(csv);
+        const filas = csvATabla(csv);
+        mapping = mapeoDesdeFilas(filas); // tira error si las columnas no matchean -> probamos el siguiente candidato
         break;
       } catch (e) { ultimoError = e; }
     }
-    if (!filasMapeo) throw new Error('no se encontró la hoja de mapeo (' + (ultimoError ? ultimoError.message : 'MAPING/MAPPING') + ')');
-    const mapping = mapeoDesdeFilas(filasMapeo);
+    if (!mapping) throw new Error('no se encontró la hoja de mapeo (' + (ultimoError ? ultimoError.message : 'MAPING/MAPPING') + ')');
 
     const csvTit = await fetchHojaCSV(sheetId, 'TITULARES');
     const titulares = titularesDesdeFilas(csvATabla(csvTit));
