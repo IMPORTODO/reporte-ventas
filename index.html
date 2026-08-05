@@ -395,8 +395,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   // ---- Leer costos en vivo desde la Google Sheet pública ----
-  async function fetchHojaCSV(sheetId, nombreHoja){
-    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(nombreHoja)}`;
+  // Se usa el endpoint JSON (no CSV): el CSV devuelve los números ya
+  // formateados con el separador de miles regional (ej. "33.472"), y
+  // parseFloat lo interpreta mal como 33.472. El JSON trae el valor crudo.
+  async function fetchHojaJSON(sheetId, nombreHoja){
+    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(nombreHoja)}&headers=1`;
     let res;
     try {
       res = await fetch(url, { cache: 'no-store' });
@@ -405,14 +408,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     if (!res.ok) throw new Error(`la hoja "${nombreHoja}" no respondió (HTTP ${res.status})`);
     const texto = await res.text();
-    if (texto.trim().startsWith('<')) throw new Error(`no se encontró una pestaña llamada "${nombreHoja}"`);
-    return texto;
+    const match = texto.match(/setResponse\(([\s\S]*)\);?\s*$/);
+    if (!match) throw new Error(`no se encontró una pestaña llamada "${nombreHoja}"`);
+    let data;
+    try { data = JSON.parse(match[1]); } catch (e) { throw new Error(`respuesta inválida de "${nombreHoja}"`); }
+    if (!data.table || data.status === 'error') throw new Error(`no se encontró una pestaña llamada "${nombreHoja}"`);
+    return data.table;
   }
 
-  function csvATabla(csvTexto){
-    const wb = XLSX.read(csvTexto, { type: 'string' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    return XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true, blankrows: false });
+  function tablaAAOA(table){
+    const headers = table.cols.map(c => (c.label || '').trim());
+    const filas = table.rows.map(r => r.c.map(celda => (celda && celda.v !== undefined && celda.v !== null) ? celda.v : ''));
+    return [headers, ...filas];
   }
 
   async function leerCostosDesdeGoogle(sheetId){
@@ -420,18 +427,23 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     let ultimoError = null;
     for (const candidato of MAPING_CANDIDATES_ORIGINALES){
       try {
-        const csv = await fetchHojaCSV(sheetId, candidato);
-        const filas = csvATabla(csv);
+        const table = await fetchHojaJSON(sheetId, candidato);
+        const filas = tablaAAOA(table);
         mapping = mapeoDesdeFilas(filas); // tira error si las columnas no matchean -> probamos el siguiente candidato
         break;
       } catch (e) { ultimoError = e; }
     }
     if (!mapping) throw new Error('no se encontró la hoja de mapeo (' + (ultimoError ? ultimoError.message : 'MAPING/MAPPING') + ')');
 
-    const csvTit = await fetchHojaCSV(sheetId, 'TITULARES');
-    const titulares = titularesDesdeFilas(csvATabla(csvTit));
+    const tableTit = await fetchHojaJSON(sheetId, 'TITULARES');
+    const titulares = titularesDesdeFilas(tablaAAOA(tableTit));
 
     return { mapping, titulares };
+  }
+
+  function esVentaCancelada(estado){
+    const n = normalizar(estado);
+    return !!n && n.includes('cancelad');
   }
 
   function combinarVentasYCostos(filas, desglosePresentes, costos){
@@ -452,6 +464,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const grupos = {};
     for (const f of filas){
       if (!f["Producto"]) continue;
+      if (esVentaCancelada(f["Estado"])) continue;
       if (!grupos[f["Producto"]]) grupos[f["Producto"]] = { ventas: [], costo: f["_costo"] };
       grupos[f["Producto"]].ventas.push(f);
     }
@@ -571,9 +584,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const vUnidades = colLetter(ventasCol['Unidades']);
     const vVentaUnidad = colLetter(ventasCol['Venta por unidad']);
     const vTotal = colLetter(ventasCol['Total (ARS)']);
+    const vEstado = colLetter(ventasCol['Estado']);
     const rango = (c) => `Ventas!$${c}$2:$${c}$${nVentas + 1}`;
     const rProducto = rango(vProducto), rUnidades = rango(vUnidades),
-          rVentaUnidad = rango(vVentaUnidad), rTotal = rango(vTotal);
+          rVentaUnidad = rango(vVentaUnidad), rTotal = rango(vTotal), rEstado = rango(vEstado);
+    // Criterio compartido: mismo producto Y estado que no sea "cancelada..." (en cualquiera de sus variantes)
+    const noCancelada = `${rEstado},"<>*cancelad*"`;
 
     const ordenado = [...resumen].sort((a, b) => b.unidades - a.unidades);
 
@@ -583,10 +599,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       ultimaFila = r;
       const valores = {
         'Producto': f.producto,
-        'Cant. ventas': { formula: `COUNTIF(${rProducto},A${r})` },
-        'Unidades vendidas': { formula: `SUMIF(${rProducto},A${r},${rUnidades})` },
-        'Venta promedio': { formula: `IFERROR(AVERAGEIF(${rProducto},A${r},${rVentaUnidad}),"")` },
-        'Ingreso neto': { formula: `IFERROR(SUMIF(${rProducto},A${r},${rTotal})/SUMIF(${rProducto},A${r},${rUnidades}),"")` },
+        'Cant. ventas': { formula: `COUNTIFS(${rProducto},A${r},${noCancelada})` },
+        'Unidades vendidas': { formula: `SUMIFS(${rUnidades},${rProducto},A${r},${noCancelada})` },
+        'Venta promedio': { formula: `IFERROR(AVERAGEIFS(${rVentaUnidad},${rProducto},A${r},${noCancelada}),"")` },
+        'Ingreso neto': { formula: `IFERROR(SUMIFS(${rTotal},${rProducto},A${r},${noCancelada})/SUMIFS(${rUnidades},${rProducto},A${r},${noCancelada}),"")` },
         'Costo': (f.costo === null || f.costo === undefined || isNaN(f.costo)) ? null : f.costo,
         'Ganancia neta': { formula: `IF(OR(F${r}="",E${r}=""),"",E${r}-F${r})` },
         '% Ganancia': { formula: `IF(OR(G${r}="",E${r}="",E${r}=0),"",G${r}/E${r})` },
