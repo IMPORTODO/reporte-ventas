@@ -323,6 +323,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (idx !== -1){ indices[col] = idx; desglosePresentes.push(col); }
     }
 
+    // Opcional, solo para el detalle de devoluciones/cancelaciones (no se muestra en la hoja Ventas)
+    const idxMotivo = indiceDe('Descripción del estado');
+
     const filas = [];
     for (let i = filaHeader + 1; i < aoa.length; i++){
       const fila = aoa[i] || [];
@@ -340,6 +343,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         "# de venta": String(idVenta),
         "Fecha de venta": fila[indices["Fecha de venta"]],
         "Estado": fila[indices["Estado"]],
+        "Motivo": idxMotivo !== -1 ? fila[idxMotivo] : '',
         "Costo flex": aplicaFlex ? -costoFlex : null,
         "Unidades": unidades,
         "Ingresos por productos (ARS)": ingresos,
@@ -441,9 +445,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return { mapping, titulares };
   }
 
-  function esVentaCancelada(estado){
+  const PALABRAS_EXCLUSION = ['cancelad', 'devoluc', 'devuelto'];
+
+  function esVentaExcluidaDelProducto(estado){
     const n = normalizar(estado);
-    return !!n && n.includes('cancelad');
+    return !!n && PALABRAS_EXCLUSION.some(p => n.includes(p));
   }
 
   function combinarVentasYCostos(filas, desglosePresentes, costos){
@@ -464,7 +470,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const grupos = {};
     for (const f of filas){
       if (!f["Producto"]) continue;
-      if (esVentaCancelada(f["Estado"])) continue;
+      if (esVentaExcluidaDelProducto(f["Estado"])) continue;
       if (!grupos[f["Producto"]]) grupos[f["Producto"]] = { ventas: [], costo: f["_costo"] };
       grupos[f["Producto"]].ventas.push(f);
     }
@@ -590,22 +596,30 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const rProducto = rango(vProducto), rUnidades = rango(vUnidades),
           rVentaUnidad = rango(vVentaUnidad), rTotal = rango(vTotal), rEstado = rango(vEstado),
           rIngresos = rango(vIngresos);
-    // Criterio compartido: mismo producto Y estado que no sea "cancelada..." (en cualquiera de sus variantes)
-    const noCancelada = `${rEstado},"<>*cancelad*"`;
+    // Criterio compartido: mismo producto Y estado que no sea cancelada/devolución (en cualquier variante)
+    const noExcluida = `${rEstado},"<>*cancelad*",${rEstado},"<>*devoluc*",${rEstado},"<>*devuelto*"`;
 
     const ordenado = [...resumen].sort((a, b) => b.unidades - a.unidades);
     const ultimaFila = ordenado.length + 1;
 
     // ---- Indicadores generales (facturación / ingresos finales / ganancia real / costo operativo) ----
-    const filaFact = 2, filaIngFinal = 3, filaGananciaTotal = 4, filaCostoOp = 5;
+    const filaFact = 2, filaIngFinal = 3, filaGananciaTotal = 4, filaCostoOp = 5,
+          filaImpactoDevol = 6, filaGananciaFinal = 7;
     const colLabel = 10, colValor = 11; // columnas J y K
 
+    const esCancelOSearch = (palabra) => `ISNUMBER(SEARCH("${palabra}",${rEstado}))`;
+    const cualquierExcluida = `((${esCancelOSearch('cancelad')}+${esCancelOSearch('devoluc')}+${esCancelOSearch('devuelto')})>0)`;
+
     const bloqueGeneral = [
-      [filaFact, 'Total facturación', { formula: `SUMIFS(${rIngresos},${noCancelada})` }, FMT_MONEY],
-      [filaIngFinal, 'Total ingresos finales en mi cuenta', { formula: `SUMIFS(${rTotal},${noCancelada})` }, FMT_MONEY],
+      [filaFact, 'Total facturación', { formula: `SUMIFS(${rIngresos},${noExcluida})` }, FMT_MONEY],
+      [filaIngFinal, 'Total ingresos finales en mi cuenta', { formula: `SUMIFS(${rTotal},${noExcluida})` }, FMT_MONEY],
       [filaGananciaTotal, 'Ganancia neta total (según costos cargados)',
         { formula: `SUMPRODUCT((F2:F${ultimaFila}<>"")*(E2:E${ultimaFila}-F2:F${ultimaFila})*C2:C${ultimaFila})` }, FMT_MONEY],
       [filaCostoOp, 'Costo total operativo (Meli + flex)', { formula: `IFERROR((K${filaFact}-K${filaIngFinal})/K${filaFact},"")` }, FMT_PCT],
+      [filaImpactoDevol, 'Impacto de devoluciones y cancelaciones',
+        { formula: `SUMPRODUCT(${cualquierExcluida}*${rTotal})` }, FMT_MONEY],
+      [filaGananciaFinal, 'Ganancia neta final (incluye devoluciones)',
+        { formula: `K${filaGananciaTotal}+K${filaImpactoDevol}` }, FMT_MONEY],
     ];
     bloqueGeneral.forEach(([fila, etiqueta, formula, formato]) => {
       const cLabel = ws.getCell(fila, colLabel);
@@ -625,10 +639,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const r = i + 2;
       const valores = {
         'Producto': f.producto,
-        'Cant. ventas': { formula: `COUNTIFS(${rProducto},A${r},${noCancelada})` },
-        'Unidades vendidas': { formula: `SUMIFS(${rUnidades},${rProducto},A${r},${noCancelada})` },
-        'Venta promedio': { formula: `IFERROR(AVERAGEIFS(${rVentaUnidad},${rProducto},A${r},${noCancelada}),"")` },
-        'Ingreso neto': { formula: `IFERROR(SUMIFS(${rTotal},${rProducto},A${r},${noCancelada})/SUMIFS(${rUnidades},${rProducto},A${r},${noCancelada}),"")` },
+        'Cant. ventas': { formula: `COUNTIFS(${rProducto},A${r},${noExcluida})` },
+        'Unidades vendidas': { formula: `SUMIFS(${rUnidades},${rProducto},A${r},${noExcluida})` },
+        'Venta promedio': { formula: `IFERROR(AVERAGEIFS(${rVentaUnidad},${rProducto},A${r},${noExcluida}),"")` },
+        'Ingreso neto': { formula: `IFERROR(SUMIFS(${rTotal},${rProducto},A${r},${noExcluida})/SUMIFS(${rUnidades},${rProducto},A${r},${noExcluida}),"")` },
         'Costo': (f.costo === null || f.costo === undefined || isNaN(f.costo)) ? null : f.costo,
         'Ganancia neta': { formula: `IF(OR(F${r}="",E${r}=""),"",E${r}-F${r})` },
         '% Ganancia': { formula: `IF(OR(G${r}="",D${r}="",D${r}=0),"",G${r}/D${r})` },
@@ -673,10 +687,48 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
   }
 
+  function construirDevoluciones(wb, filas){
+    const ws = wb.addWorksheet('Devoluciones y cancelaciones');
+    const headers = ['# de venta', 'Fecha de venta', 'Estado', 'Motivo', 'Producto', 'Título de la publicación', 'Total (ARS)'];
+    headerRow(ws, headers);
+
+    const afectadas = filas.filter(f => esVentaExcluidaDelProducto(f["Estado"]));
+
+    afectadas.forEach((f, i) => {
+      const r = i + 2;
+      const valores = [
+        f["# de venta"], f["Fecha de venta"], f["Estado"], f["Motivo"] || '',
+        f["Producto"] || '', f["Título de la publicación"], f["Total (ARS)"],
+      ];
+      valores.forEach((v, ci) => {
+        const cell = ws.getCell(r, ci + 1);
+        cell.value = v;
+        cell.font = BODY_FONT;
+        cell.border = BORDER;
+        if (headers[ci] === '# de venta') cell.numFmt = '@';
+        if (headers[ci] === 'Total (ARS)') cell.numFmt = FMT_MONEY;
+        if (i % 2 === 1) cell.fill = BAND_FILL;
+      });
+    });
+
+    if (afectadas.length === 0){
+      const cell = ws.getCell(2, 1);
+      cell.value = 'No hubo devoluciones ni cancelaciones en este período. 🎉';
+      cell.font = { name: FONT, size: 10, italic: true, color: { argb: 'FF746B5C' } };
+    }
+
+    const anchos = { '# de venta': 18, 'Fecha de venta': 22, 'Estado': 30, 'Motivo': 50,
+      'Producto': 40, 'Título de la publicación': 46, 'Total (ARS)': 14 };
+    headers.forEach((h, i) => { ws.getColumn(i + 1).width = anchos[h] || 16; });
+
+    ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+  }
+
   async function construirReporte(resultado){
     const wb = new ExcelJS.Workbook();
     const { col, n } = construirVentas(wb, resultado.filas, resultado.desglosePresentes);
     construirResumen(wb, resultado.resumen, col, n);
+    construirDevoluciones(wb, resultado.filas);
     return await wb.xlsx.writeBuffer();
   }
 
