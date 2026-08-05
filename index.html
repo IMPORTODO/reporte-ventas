@@ -292,7 +292,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const ALIAS_TITULO_PUBLICACION = ['título de la publicación', 'nombre meli'];
   const ALIAS_TITULO_ORIGINAL = ['titulo_original', 'producto original'];
   const ALIAS_PRODUCTO_TITULARES = ['producto'];
-  const ALIAS_PRECIO_TITULARES = ['precio paraguai  + sergio py', 'precio paraguai + sergio py'];
+  const ALIAS_PRECIO_TITULARES = ['costo pesos total', 'precio paraguai  + sergio py', 'precio paraguai + sergio py'];
 
   // ID de la spreadsheet PÚBLICA (solo MAPING + TITULARES, sin datos sensibles)
   // que replica en vivo la privada mediante IMPORTRANGE.
@@ -585,18 +585,44 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const vVentaUnidad = colLetter(ventasCol['Venta por unidad']);
     const vTotal = colLetter(ventasCol['Total (ARS)']);
     const vEstado = colLetter(ventasCol['Estado']);
+    const vIngresos = colLetter(ventasCol['Ingresos por productos (ARS)']);
     const rango = (c) => `Ventas!$${c}$2:$${c}$${nVentas + 1}`;
     const rProducto = rango(vProducto), rUnidades = rango(vUnidades),
-          rVentaUnidad = rango(vVentaUnidad), rTotal = rango(vTotal), rEstado = rango(vEstado);
+          rVentaUnidad = rango(vVentaUnidad), rTotal = rango(vTotal), rEstado = rango(vEstado),
+          rIngresos = rango(vIngresos);
     // Criterio compartido: mismo producto Y estado que no sea "cancelada..." (en cualquiera de sus variantes)
     const noCancelada = `${rEstado},"<>*cancelad*"`;
 
     const ordenado = [...resumen].sort((a, b) => b.unidades - a.unidades);
+    const ultimaFila = ordenado.length + 1;
 
-    let ultimaFila = 1;
+    // ---- Indicadores generales (facturación / ingresos finales / ganancia real / costo operativo) ----
+    const filaFact = 2, filaIngFinal = 3, filaGananciaTotal = 4, filaCostoOp = 5;
+    const colLabel = 10, colValor = 11; // columnas J y K
+
+    const bloqueGeneral = [
+      [filaFact, 'Total facturación', { formula: `SUMIFS(${rIngresos},${noCancelada})` }, FMT_MONEY],
+      [filaIngFinal, 'Total ingresos finales en mi cuenta', { formula: `SUMIFS(${rTotal},${noCancelada})` }, FMT_MONEY],
+      [filaGananciaTotal, 'Ganancia neta total (según costos cargados)',
+        { formula: `SUMPRODUCT((F2:F${ultimaFila}<>"")*(E2:E${ultimaFila}-F2:F${ultimaFila})*C2:C${ultimaFila})` }, FMT_MONEY],
+      [filaCostoOp, 'Costo total operativo (Meli + flex)', { formula: `IFERROR((K${filaFact}-K${filaIngFinal})/K${filaFact},"")` }, FMT_PCT],
+    ];
+    bloqueGeneral.forEach(([fila, etiqueta, formula, formato]) => {
+      const cLabel = ws.getCell(fila, colLabel);
+      cLabel.value = etiqueta;
+      cLabel.font = { name: FONT, size: 10, bold: true };
+      cLabel.alignment = { horizontal: 'right', wrapText: true };
+      const cVal = ws.getCell(fila, colValor);
+      cVal.value = formula;
+      cVal.font = { name: FONT, size: 11, bold: true };
+      cVal.numFmt = formato;
+      cVal.alignment = { horizontal: 'center' };
+    });
+    ws.getColumn(colLabel).width = 30;
+    ws.getColumn(colValor).width = 16;
+
     ordenado.forEach((f, i) => {
       const r = i + 2;
-      ultimaFila = r;
       const valores = {
         'Producto': f.producto,
         'Cant. ventas': { formula: `COUNTIFS(${rProducto},A${r},${noCancelada})` },
@@ -605,7 +631,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         'Ingreso neto': { formula: `IFERROR(SUMIFS(${rTotal},${rProducto},A${r},${noCancelada})/SUMIFS(${rUnidades},${rProducto},A${r},${noCancelada}),"")` },
         'Costo': (f.costo === null || f.costo === undefined || isNaN(f.costo)) ? null : f.costo,
         'Ganancia neta': { formula: `IF(OR(F${r}="",E${r}=""),"",E${r}-F${r})` },
-        '% Ganancia': { formula: `IF(OR(G${r}="",E${r}="",E${r}=0),"",G${r}/E${r})` },
+        '% Ganancia': { formula: `IF(OR(G${r}="",D${r}="",D${r}=0),"",G${r}/D${r})` },
       };
       headers.forEach((h, ci) => {
         const cell = ws.getCell(r, ci + 1);
@@ -635,7 +661,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     cellLabel.font = { name: FONT, size: 10, bold: true };
     cellLabel.alignment = { horizontal: 'right' };
     const cellVal = ws.getCell(filaProm, 8);
-    cellVal.value = { formula: `IFERROR(AVERAGE(H2:H${ultimaFila}),"")` };
+    cellVal.value = { formula: `IFERROR(SUMPRODUCT((F2:F${ultimaFila}<>"")*(E2:E${ultimaFila}-F2:F${ultimaFila})*C2:C${ultimaFila})/SUMPRODUCT((F2:F${ultimaFila}<>"")*D2:D${ultimaFila}*C2:C${ultimaFila}),"")` };
     cellVal.font = { name: FONT, size: 13, bold: true };
     cellVal.numFmt = FMT_PCT;
     cellVal.alignment = { horizontal: 'center' };
