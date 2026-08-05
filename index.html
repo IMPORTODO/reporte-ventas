@@ -367,7 +367,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const encMapeo = filasMapeo[0].map(String);
     const idxTitulo = encontrarColumna(encMapeo, ALIAS_TITULO_PUBLICACION);
     const idxOriginal = encontrarColumna(encMapeo, ALIAS_TITULO_ORIGINAL);
-    if (idxTitulo === -1 || idxOriginal === -1) throw new Error('no se identificaron las columnas de mapeo');
+    if (idxTitulo === -1 || idxOriginal === -1) throw new Error('no se identificaron las columnas de mapeo. Columnas encontradas: [' + encMapeo.join(' | ') + ']');
     const mapping = {};
     for (let i = 1; i < filasMapeo.length; i++){
       const fila = filasMapeo[i];
@@ -383,7 +383,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const encTit = filasTit[0].map(String);
     const idxProducto = encontrarColumna(encTit, ALIAS_PRODUCTO_TITULARES);
     const idxPrecio = encontrarColumna(encTit, ALIAS_PRECIO_TITULARES);
-    if (idxProducto === -1 || idxPrecio === -1) throw new Error('no se identificaron las columnas de TITULARES');
+    if (idxProducto === -1 || idxPrecio === -1) throw new Error('no se identificaron las columnas de TITULARES. Columnas encontradas: [' + encTit.join(' | ') + ']');
     const titulares = {};
     for (let i = 1; i < filasTit.length; i++){
       const fila = filasTit[i];
