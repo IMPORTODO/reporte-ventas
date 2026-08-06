@@ -133,6 +133,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px; background: #FCFBF8; color: var(--ink); }
   .field input[type="number"]:focus{ outline: none; border-color: var(--accent); background: #fff; }
   .field input[type="number"]::-webkit-outer-spin-button, .field input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance: none; margin:0; }
+  .field select{
+    width: 100%; font-size: 14.5px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px;
+    background: #FCFBF8; color: var(--ink); font-family: inherit; cursor: pointer;
+  }
+  .field select:focus{ outline: none; border-color: var(--accent); background: #fff; }
   button.primary{ width: 100%; margin-top: 22px; padding: 13px 18px; border: none; border-radius: 10px; background: var(--ink); color: #fff;
     font-weight: 700; font-size: 14.5px; cursor: pointer; transition: transform .08s ease, background-color .15s ease; }
   button.primary:disabled{ background: #D9D3C4; color: #8B8272; cursor: not-allowed; }
@@ -209,6 +214,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         <label for="costo-flex">Costo flex del mes</label>
         <input type="number" id="costo-flex" inputmode="decimal" placeholder="Ej: 8000" min="0" step="any">
         <p class="hint">Lo que pagaste vos, por fuera de Meli, en los envíos que salieron de su logística.</p>
+      </div>
+
+      <div class="field">
+        <label for="persona-select">¿Quién sos?</label>
+        <select id="persona-select">
+          <option value="">Elegí tu nombre...</option>
+        </select>
+        <p class="hint">Así el reporte separa tus productos de los de otros vendedores en tu cuenta.</p>
       </div>
 
       <button class="primary" id="process-btn" disabled>Generar reporte</button>
@@ -293,6 +306,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const ALIAS_TITULO_ORIGINAL = ['titulo_original', 'producto original'];
   const ALIAS_PRODUCTO_TITULARES = ['producto'];
   const ALIAS_PRECIO_TITULARES = ['costo pesos total', 'precio paraguai  + sergio py', 'precio paraguai + sergio py'];
+  const ALIAS_VENDEDOR_TITULARES = ['vendedor', 'vendedores', 'dueño', 'dueno', 'titular'];
+  const PERSONAS = ['SERGIO', 'ANA', 'SURAK', 'AGUS'];
 
   // ID de la spreadsheet PÚBLICA (solo MAPING + TITULARES, sin datos sensibles)
   // que replica en vivo la privada mediante IMPORTRANGE.
@@ -387,15 +402,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const encTit = filasTit[0].map(String);
     const idxProducto = encontrarColumna(encTit, ALIAS_PRODUCTO_TITULARES);
     const idxPrecio = encontrarColumna(encTit, ALIAS_PRECIO_TITULARES);
+    const idxVendedor = encontrarColumna(encTit, ALIAS_VENDEDOR_TITULARES);
     if (idxProducto === -1 || idxPrecio === -1) throw new Error('no se identificaron las columnas de TITULARES. Columnas encontradas: [' + encTit.join(' | ') + ']');
     const titulares = {};
+    const vendedores = {};
     for (let i = 1; i < filasTit.length; i++){
       const fila = filasTit[i];
       const producto = fila[idxProducto];
       if (esVacio(producto)) continue;
       titulares[normalizar(producto)] = parseFloat(fila[idxPrecio]);
+      if (idxVendedor !== -1 && !esVacio(fila[idxVendedor])){
+        vendedores[normalizar(producto)] = String(fila[idxVendedor]).trim().toUpperCase();
+      }
     }
-    return titulares;
+    return { titulares, vendedores };
   }
 
   // ---- Leer costos en vivo desde la Google Sheet pública ----
@@ -440,9 +460,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!mapping) throw new Error('no se encontró la hoja de mapeo (' + (ultimoError ? ultimoError.message : 'MAPING/MAPPING') + ')');
 
     const tableTit = await fetchHojaJSON(sheetId, 'TITULARES');
-    const titulares = titularesDesdeFilas(tablaAAOA(tableTit));
+    const { titulares, vendedores } = titularesDesdeFilas(tablaAAOA(tableTit));
 
-    return { mapping, titulares };
+    return { mapping, titulares, vendedores };
   }
 
   const PALABRAS_EXCLUSION = ['cancelad', 'devoluc', 'devuelto'];
@@ -452,8 +472,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return !!n && PALABRAS_EXCLUSION.some(p => n.includes(p));
   }
 
-  function combinarVentasYCostos(filas, desglosePresentes, costos){
-    const { mapping, titulares } = costos;
+  function combinarVentasYCostos(filas, desglosePresentes, costos, personaSeleccionada){
+    const { mapping, titulares, vendedores } = costos;
     const sinMapeo = new Set();
     const sinCosto = new Set();
 
@@ -475,17 +495,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       grupos[f["Producto"]].ventas.push(f);
     }
 
-    const resumen = Object.entries(grupos).map(([producto, { ventas, costo }]) => {
+    const resumenCompleto = Object.entries(grupos).map(([producto, { ventas, costo }]) => {
       const unidades = ventas.reduce((s, v) => s + v["Unidades"], 0);
       const totalSum = ventas.reduce((s, v) => s + v["Total (ARS)"], 0);
       const ventaProm = ventas.reduce((s, v) => s + v["Venta por unidad"], 0) / ventas.length;
       const ingresoNeto = totalSum / unidades;
       const gananciaNeta = costo == null ? null : ingresoNeto - costo;
       const pct = (gananciaNeta == null) ? null : gananciaNeta / ingresoNeto;
-      return { producto, cantVentas: ventas.length, unidades, ventaProm, ingresoNeto, costo, gananciaNeta, pct };
+      // Dueño del producto: viene de la columna Vendedor de TITULARES; si no está
+      // cargado, se asume que es del que genera el reporte (para no perder datos).
+      const dueño = vendedores[normalizar(producto)] || personaSeleccionada;
+      return { producto, cantVentas: ventas.length, unidades, ventaProm, ingresoNeto, costo, gananciaNeta, pct, dueño };
     });
 
-    return { filas, desglosePresentes, resumen, sinMapeo: [...sinMapeo], sinCosto: [...sinCosto] };
+    const esMio = (d) => d === personaSeleccionada;
+    const resumen = resumenCompleto.filter(f => esMio(f.dueño));
+    const resumenTerceros = resumenCompleto.filter(f => !esMio(f.dueño));
+
+    return { filas, desglosePresentes, resumen, resumenTerceros, personaSeleccionada, sinMapeo: [...sinMapeo], sinCosto: [...sinCosto] };
   }
 
   // ---------- Construcción del Excel de salida (ExcelJS) ----------
@@ -580,63 +607,36 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return { col, n: filas.length };
   }
 
-  function construirResumen(wb, resumen, ventasCol, nVentas){
-    const ws = wb.addWorksheet('Resumen');
+  // Escribe una sub-tabla de rentabilidad por producto (encabezado + filas) empezando
+  // en filaInicio. La reutilizan tanto la hoja Resumen como cada bloque de Terceros.
+  function escribirBloqueProductos(ws, filaInicio, productos, ventasCol, nVentas){
     const headers = ['Producto', 'Cant. ventas', 'Unidades vendidas', 'Venta promedio',
       'Ingreso neto', 'Costo', 'Ganancia neta', '% Ganancia'];
-    headerRow(ws, headers);
+    headers.forEach((h, i) => {
+      const cell = ws.getCell(filaInicio, i + 1);
+      cell.value = h;
+      cell.font = HEADER_FONT;
+      cell.fill = HEADER_FILL;
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = BORDER;
+    });
+    ws.getRow(filaInicio).height = 26;
 
     const vProducto = colLetter(ventasCol['Producto']);
     const vUnidades = colLetter(ventasCol['Unidades']);
     const vVentaUnidad = colLetter(ventasCol['Venta por unidad']);
     const vTotal = colLetter(ventasCol['Total (ARS)']);
     const vEstado = colLetter(ventasCol['Estado']);
-    const vIngresos = colLetter(ventasCol['Ingresos por productos (ARS)']);
     const rango = (c) => `Ventas!$${c}$2:$${c}$${nVentas + 1}`;
     const rProducto = rango(vProducto), rUnidades = rango(vUnidades),
-          rVentaUnidad = rango(vVentaUnidad), rTotal = rango(vTotal), rEstado = rango(vEstado),
-          rIngresos = rango(vIngresos);
-    // Criterio compartido: mismo producto Y estado que no sea cancelada/devolución (en cualquier variante)
+          rVentaUnidad = rango(vVentaUnidad), rTotal = rango(vTotal), rEstado = rango(vEstado);
     const noExcluida = `${rEstado},"<>*cancelad*",${rEstado},"<>*devoluc*",${rEstado},"<>*devuelto*"`;
 
-    const ordenado = [...resumen].sort((a, b) => b.unidades - a.unidades);
-    const ultimaFila = ordenado.length + 1;
-
-    // ---- Indicadores generales (facturación / ingresos finales / ganancia real / costo operativo) ----
-    const filaFact = 2, filaIngFinal = 3, filaGananciaTotal = 4, filaCostoOp = 5,
-          filaImpactoDevol = 6, filaGananciaFinal = 7;
-    const colLabel = 10, colValor = 11; // columnas J y K
-
-    const esCancelOSearch = (palabra) => `ISNUMBER(SEARCH("${palabra}",${rEstado}))`;
-    const cualquierExcluida = `((${esCancelOSearch('cancelad')}+${esCancelOSearch('devoluc')}+${esCancelOSearch('devuelto')})>0)`;
-
-    const bloqueGeneral = [
-      [filaFact, 'Total facturación', { formula: `SUMIFS(${rIngresos},${noExcluida})` }, FMT_MONEY],
-      [filaIngFinal, 'Total ingresos finales en mi cuenta', { formula: `SUMIFS(${rTotal},${noExcluida})` }, FMT_MONEY],
-      [filaGananciaTotal, 'Ganancia neta total (según costos cargados)',
-        { formula: `SUMPRODUCT((F2:F${ultimaFila}<>"")*(E2:E${ultimaFila}-F2:F${ultimaFila})*C2:C${ultimaFila})` }, FMT_MONEY],
-      [filaCostoOp, 'Costo total operativo (Meli + flex)', { formula: `IFERROR((K${filaFact}-K${filaIngFinal})/K${filaFact},"")` }, FMT_PCT],
-      [filaImpactoDevol, 'Impacto de devoluciones y cancelaciones',
-        { formula: `SUMPRODUCT(${cualquierExcluida}*${rTotal})` }, FMT_MONEY],
-      [filaGananciaFinal, 'Ganancia neta final (incluye devoluciones)',
-        { formula: `K${filaGananciaTotal}+K${filaImpactoDevol}` }, FMT_MONEY],
-    ];
-    bloqueGeneral.forEach(([fila, etiqueta, formula, formato]) => {
-      const cLabel = ws.getCell(fila, colLabel);
-      cLabel.value = etiqueta;
-      cLabel.font = { name: FONT, size: 10, bold: true };
-      cLabel.alignment = { horizontal: 'right', wrapText: true };
-      const cVal = ws.getCell(fila, colValor);
-      cVal.value = formula;
-      cVal.font = { name: FONT, size: 11, bold: true };
-      cVal.numFmt = formato;
-      cVal.alignment = { horizontal: 'center' };
-    });
-    ws.getColumn(colLabel).width = 30;
-    ws.getColumn(colValor).width = 16;
+    const ordenado = [...productos].sort((a, b) => b.unidades - a.unidades);
+    const primeraFilaDatos = filaInicio + 1;
 
     ordenado.forEach((f, i) => {
-      const r = i + 2;
+      const r = filaInicio + 1 + i;
       const valores = {
         'Producto': f.producto,
         'Cant. ventas': { formula: `COUNTIFS(${rProducto},A${r},${noExcluida})` },
@@ -659,32 +659,160 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       });
     });
 
-    const rangoPct = `H2:H${ultimaFila}`;
-    ws.addConditionalFormatting({
-      ref: rangoPct,
-      rules: [
-        { type: 'expression', formulae: [`H2<${CORTE_ROJO}`], priority: 1, style: { fill: FILL_ROJO, font: FONT_ROJO } },
-        { type: 'expression', formulae: [`H2<${CORTE_AMARILLO}`], priority: 2, style: { fill: FILL_AMARILLO, font: FONT_AMARILLO } },
-        { type: 'expression', formulae: [`H2>=${CORTE_AMARILLO}`], priority: 3, style: { fill: FILL_VERDE, font: FONT_VERDE } },
-      ],
-    });
+    const ultimaFilaDatos = filaInicio + ordenado.length;
+    if (ordenado.length > 0){
+      const rangoPct = `H${primeraFilaDatos}:H${ultimaFilaDatos}`;
+      ws.addConditionalFormatting({
+        ref: rangoPct,
+        rules: [
+          { type: 'expression', formulae: [`H${primeraFilaDatos}<${CORTE_ROJO}`], priority: 1, style: { fill: FILL_ROJO, font: FONT_ROJO } },
+          { type: 'expression', formulae: [`H${primeraFilaDatos}<${CORTE_AMARILLO}`], priority: 2, style: { fill: FILL_AMARILLO, font: FONT_AMARILLO } },
+          { type: 'expression', formulae: [`H${primeraFilaDatos}>=${CORTE_AMARILLO}`], priority: 3, style: { fill: FILL_VERDE, font: FONT_VERDE } },
+        ],
+      });
+    }
 
-    const filaProm = ultimaFila + 2;
+    const anchos = { A: 42, B: 11, C: 14, D: 13, E: 13, F: 12, G: 13, H: 12 };
+    Object.entries(anchos).forEach(([c, w]) => { ws.getColumn(c).width = w; });
+
+    return { primeraFilaDatos, ultimaFilaDatos, count: ordenado.length };
+  }
+
+  function construirResumen(wb, resumen, ventasCol, nVentas){
+    const ws = wb.addWorksheet('Resumen');
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
+    const { ultimaFilaDatos } = escribirBloqueProductos(ws, 1, resumen, ventasCol, nVentas);
+
+    const filaProm = ultimaFilaDatos + 2;
     const cellLabel = ws.getCell(filaProm, 6);
     cellLabel.value = 'Promedio rentabilidad final';
     cellLabel.font = { name: FONT, size: 10, bold: true };
     cellLabel.alignment = { horizontal: 'right' };
     const cellVal = ws.getCell(filaProm, 8);
-    cellVal.value = { formula: `IFERROR(SUMPRODUCT((F2:F${ultimaFila}<>"")*(E2:E${ultimaFila}-F2:F${ultimaFila})*C2:C${ultimaFila})/SUMPRODUCT((F2:F${ultimaFila}<>"")*D2:D${ultimaFila}*C2:C${ultimaFila}),"")` };
+    cellVal.value = { formula: `IFERROR(SUMPRODUCT((F2:F${ultimaFilaDatos}<>"")*(E2:E${ultimaFilaDatos}-F2:F${ultimaFilaDatos})*C2:C${ultimaFilaDatos})/SUMPRODUCT((F2:F${ultimaFilaDatos}<>"")*D2:D${ultimaFilaDatos}*C2:C${ultimaFilaDatos}),"")` };
     cellVal.font = { name: FONT, size: 13, bold: true };
     cellVal.numFmt = FMT_PCT;
     cellVal.alignment = { horizontal: 'center' };
 
-    const anchos = { 'Producto': 42, 'Cant. ventas': 11, 'Unidades vendidas': 14, 'Venta promedio': 13,
-      'Ingreso neto': 13, 'Costo': 12, 'Ganancia neta': 13, '% Ganancia': 12 };
-    headers.forEach((h, i) => { ws.getColumn(i + 1).width = anchos[h] || 14; });
+    ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+    return { ultimaFilaDatos };
+  }
+
+  function construirTerceros(wb, resumenTerceros, ventasCol, nVentas){
+    const ws = wb.addWorksheet('Terceros');
+    ws.getColumn(1).width = 42;
+
+    if (resumenTerceros.length === 0){
+      const cell = ws.getCell(1, 1);
+      cell.value = 'No hay productos de otros vendedores en este período.';
+      cell.font = { name: FONT, size: 10, italic: true, color: { argb: 'FF746B5C' } };
+      return { subtotales: {} };
+    }
+
+    const porDueño = {};
+    for (const f of resumenTerceros){
+      (porDueño[f.dueño] = porDueño[f.dueño] || []).push(f);
+    }
+    const nombres = Object.keys(porDueño).sort();
+
+    let fila = 1;
+    const subtotales = {};
+    nombres.forEach(nombre => {
+      const tituloCell = ws.getCell(fila, 1);
+      tituloCell.value = `Productos de ${nombre}`;
+      tituloCell.font = { name: FONT, size: 12, bold: true, color: { argb: 'FF7A5620' } };
+      fila += 1;
+
+      const { primeraFilaDatos, ultimaFilaDatos } = escribirBloqueProductos(ws, fila, porDueño[nombre], ventasCol, nVentas);
+
+      const filaSubtotal = ultimaFilaDatos + 1;
+      const labelCell = ws.getCell(filaSubtotal, 4);
+      labelCell.value = `Ingreso neto total a transferir a ${nombre}`;
+      labelCell.font = { name: FONT, size: 10, bold: true };
+      labelCell.alignment = { horizontal: 'right' };
+      const valCell = ws.getCell(filaSubtotal, 5);
+      valCell.value = { formula: `SUMPRODUCT(E${primeraFilaDatos}:E${ultimaFilaDatos},C${primeraFilaDatos}:C${ultimaFilaDatos})` };
+      valCell.font = { name: FONT, size: 11, bold: true, color: { argb: 'FF7A5620' } };
+      valCell.numFmt = FMT_MONEY;
+      valCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3E6C9' } };
+
+      subtotales[nombre] = { fila: filaSubtotal, col: 'E' };
+      fila = filaSubtotal + 3; // deja espacio antes del próximo bloque
+    });
 
     ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+    return { subtotales };
+  }
+
+  function construirAnalitica(wb, ventasCol, nVentas, terceros, ultimaFilaResumen){
+    const ws = wb.addWorksheet('Analítica');
+    ws.getColumn(1).width = 46;
+    ws.getColumn(2).width = 18;
+
+    const vTotal = colLetter(ventasCol['Total (ARS)']);
+    const vEstado = colLetter(ventasCol['Estado']);
+    const vIngresos = colLetter(ventasCol['Ingresos por productos (ARS)']);
+    const vProducto = colLetter(ventasCol['Producto']);
+    const rango = (c) => `Ventas!$${c}$2:$${c}$${nVentas + 1}`;
+    const rTotal = rango(vTotal), rEstado = rango(vEstado), rIngresos = rango(vIngresos), rProducto = rango(vProducto);
+    const noExcluida = `${rEstado},"<>*cancelad*",${rEstado},"<>*devoluc*",${rEstado},"<>*devuelto*"`;
+    const esCancelOSearch = (palabra) => `ISNUMBER(SEARCH("${palabra}",${rEstado}))`;
+    const cualquierExcluida = `((${esCancelOSearch('cancelad')}+${esCancelOSearch('devoluc')}+${esCancelOSearch('devuelto')})>0)`;
+    // "Es mío": el producto de esa fila aparece listado en la hoja Resumen (mis productos)
+    const esMiProducto = `(COUNTIF(Resumen!$A$2:$A$${ultimaFilaResumen},${rProducto})>0)`;
+    const rResumenF = `Resumen!$F$2:$F$${ultimaFilaResumen}`;
+    const rResumenE = `Resumen!$E$2:$E$${ultimaFilaResumen}`;
+    const rResumenC = `Resumen!$C$2:$C$${ultimaFilaResumen}`;
+
+    const filaFact = 2, filaIngFinal = 3, filaGananciaTotal = 4, filaCostoOp = 5,
+          filaImpactoDevol = 6, filaGananciaFinal = 7;
+
+    const bloque = [
+      [filaFact, 'Total facturación (cuenta completa)', { formula: `SUMIFS(${rIngresos},${noExcluida})` }, FMT_MONEY],
+      [filaIngFinal, 'Total ingresos finales en mi cuenta', { formula: `SUMIFS(${rTotal},${noExcluida})` }, FMT_MONEY],
+      [filaGananciaTotal, 'Ganancia neta total (mis productos)',
+        { formula: `SUMPRODUCT((${rResumenF}<>"")*(${rResumenE}-${rResumenF})*${rResumenC})` }, FMT_MONEY],
+      [filaCostoOp, 'Costo total operativo (Meli + flex)', { formula: `IFERROR((B${filaFact}-B${filaIngFinal})/B${filaFact},"")` }, FMT_PCT],
+      [filaImpactoDevol, 'Impacto devoluciones/cancelaciones (mis productos)',
+        { formula: `SUMPRODUCT(${cualquierExcluida}*${esMiProducto}*${rTotal})` }, FMT_MONEY],
+      [filaGananciaFinal, 'Ganancia neta final (mis productos, incl. devoluciones)',
+        { formula: `B${filaGananciaTotal}+B${filaImpactoDevol}` }, FMT_MONEY],
+    ];
+    bloque.forEach(([fila, etiqueta, formula, formato]) => {
+      const cLabel = ws.getCell(fila, 1);
+      cLabel.value = etiqueta;
+      cLabel.font = { name: FONT, size: 10, bold: true };
+      const cVal = ws.getCell(fila, 2);
+      cVal.value = formula;
+      cVal.font = { name: FONT, size: 11, bold: true };
+      cVal.numFmt = formato;
+      cVal.alignment = { horizontal: 'center' };
+    });
+
+    // ---- Ingresos netos de terceros, por persona ----
+    const filaTitulo = 9;
+    const tCell = ws.getCell(filaTitulo, 1);
+    tCell.value = 'Ingreso neto a transferir a terceros, por persona';
+    tCell.font = { name: FONT, size: 11, bold: true };
+
+    const nombres = Object.keys(terceros.subtotales);
+    if (nombres.length === 0){
+      ws.getCell(filaTitulo + 1, 1).value = 'No hay productos de terceros en este período.';
+      ws.getCell(filaTitulo + 1, 1).font = { name: FONT, size: 10, italic: true, color: { argb: 'FF746B5C' } };
+    } else {
+      nombres.forEach((nombre, i) => {
+        const r = filaTitulo + 1 + i;
+        const ref = terceros.subtotales[nombre];
+        const cLabel = ws.getCell(r, 1);
+        cLabel.value = nombre;
+        cLabel.font = { name: FONT, size: 10, bold: true };
+        const cVal = ws.getCell(r, 2);
+        cVal.value = { formula: `Terceros!${ref.col}${ref.fila}` };
+        cVal.font = { name: FONT, size: 10.5, bold: true, color: { argb: 'FF7A5620' } };
+        cVal.numFmt = FMT_MONEY;
+        cVal.alignment = { horizontal: 'center' };
+      });
+    }
   }
 
   function construirDevoluciones(wb, filas){
@@ -727,7 +855,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   async function construirReporte(resultado){
     const wb = new ExcelJS.Workbook();
     const { col, n } = construirVentas(wb, resultado.filas, resultado.desglosePresentes);
-    construirResumen(wb, resultado.resumen, col, n);
+    const { ultimaFilaDatos } = construirResumen(wb, resultado.resumen, col, n);
+    const terceros = construirTerceros(wb, resultado.resumenTerceros, col, n);
+    construirAnalitica(wb, col, n, terceros, Math.max(ultimaFilaDatos, 2));
     construirDevoluciones(wb, resultado.filas);
     return await wb.xlsx.writeBuffer();
   }
@@ -742,6 +872,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const btnQuitar = document.getElementById('btn-quitar');
 
   const costoFlexInput = document.getElementById('costo-flex');
+  const personaSelect = document.getElementById('persona-select');
+  PERSONAS.forEach(nombre => {
+    const opt = document.createElement('option');
+    opt.value = nombre;
+    opt.textContent = nombre.charAt(0) + nombre.slice(1).toLowerCase();
+    personaSelect.appendChild(opt);
+  });
   const processBtn = document.getElementById('process-btn');
   const errorBox = document.getElementById('error-box');
   const stepForm = document.getElementById('step-form');
@@ -769,7 +906,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   function actualizarBoton(){
     const flexOk = costoFlexInput.value !== '' && !isNaN(parseFloat(costoFlexInput.value));
-    processBtn.disabled = !(archivoVentas && flexOk);
+    const personaOk = personaSelect.value !== '';
+    processBtn.disabled = !(archivoVentas && flexOk && personaOk);
   }
 
   function setArchivo(file){
@@ -804,6 +942,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   input.addEventListener('change', (e) => setArchivo(e.target.files[0]));
   btnQuitar.addEventListener('click', (e) => { e.stopPropagation(); limpiarArchivo(); });
   costoFlexInput.addEventListener('input', () => { ocultarError(); actualizarBoton(); });
+  personaSelect.addEventListener('change', () => { ocultarError(); actualizarBoton(); });
 
   function leerComoArrayBuffer(file){
     return new Promise((resolve, reject) => {
@@ -834,7 +973,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         throw new Error('No se pudo conectar con la planilla de costos (' + e.message + '). Revisá tu conexión a internet e intentá de nuevo.');
       }
 
-      const resultado = combinarVentasYCostos(filas, desglosePresentes, costos);
+      const resultado = combinarVentasYCostos(filas, desglosePresentes, costos, personaSelect.value);
       const buffer = await construirReporte(resultado);
 
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -872,6 +1011,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   resetBtn.addEventListener('click', () => {
     limpiarArchivo();
     costoFlexInput.value = '';
+    personaSelect.value = '';
     ocultarError();
     statusConexion.classList.add('step-hidden');
     processBtn.disabled = true;
