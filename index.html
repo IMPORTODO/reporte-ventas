@@ -246,7 +246,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       </div>
 
       <div class="zone step-hidden" id="zona-settlement" style="margin-top:14px;">
-        <p class="zone-label"><span class="num">+</span> Existencias (opcional)</p>
+        <p class="zone-label" id="zone-label-settlement"><span class="num">+</span> Existencias (opcional)</p>
         <p class="zone-hint" style="margin-bottom:8px;">Subí solo el Excel de ventas para ver rentabilidad. Sumá el reporte "Cobros" de MercadoPago para agregar la hoja Existencias (plata cobrada y a cobrar, por vendedor).</p>
         <div class="dropzone" id="dz-settlement" tabindex="0" role="button" aria-label="Elegir o arrastrar el reporte de MercadoPago">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -259,10 +259,26 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           <span class="name" id="name-settlement">archivo.xlsx</span>
           <button id="btn-quitar-settlement" aria-label="Quitar archivo" type="button">&times;</button>
         </div>
+
+        <div class="zone step-hidden" id="zona-settlement2" style="margin-top:12px;">
+          <p class="zone-label" id="zone-label-settlement2"><span class="num">+</span> Cobros de la segunda cuenta</p>
+          <div class="dropzone" id="dz-settlement2" tabindex="0" role="button" aria-label="Elegir o arrastrar el reporte de MercadoPago de la segunda cuenta">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <p class="dz-title" id="dz-title-settlement2">Arrastrá el reporte de la 2da cuenta</p>
+            <p class="dz-sub" id="dz-sub-settlement2">o hacé clic para elegirlo · .xlsx</p>
+          </div>
+          <input type="file" id="input-settlement2" accept=".xlsx,.xls">
+          <div class="file-chip step-hidden" id="chip-settlement2">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.4"/><path d="M14 2v5h5" stroke="currentColor" stroke-width="1.4"/></svg>
+            <span class="name" id="name-settlement2">archivo.xlsx</span>
+            <button id="btn-quitar-settlement2" aria-label="Quitar archivo" type="button">&times;</button>
+          </div>
+        </div>
+
         <div class="field" id="campo-fecha-corte" style="margin-top:12px;">
           <label for="fecha-corte">Fecha de corte</label>
           <input type="date" id="fecha-corte">
-          <p class="hint">Lo que se libera hasta esta fecha cuenta como "cobrado"; lo que se libera después, como "a cobrar". Por defecto, hoy.</p>
+          <p class="hint">Lo que se libera hasta esta fecha cuenta como "cobrado"; lo que se libera después, como "a cobrar". Por defecto, hoy. (Es una sola fecha, aunque uses dos cuentas.)</p>
         </div>
 
         <div class="field" id="campo-envios" style="margin-top:12px;">
@@ -277,6 +293,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.4"/><path d="M14 2v5h5" stroke="currentColor" stroke-width="1.4"/></svg>
             <span class="name" id="name-envios">archivo.xlsx</span>
             <button id="btn-quitar-envios" aria-label="Quitar archivo" type="button">&times;</button>
+          </div>
+
+          <div class="zone step-hidden" id="zona-envios2" style="margin-top:12px;">
+            <p class="zone-label" id="zone-label-envios2"><span class="num">+</span> Envíos de la segunda cuenta</p>
+            <div class="dropzone" id="dz-envios2" tabindex="0" role="button" aria-label="Elegir o arrastrar el listado de envíos de la segunda cuenta">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <p class="dz-title" id="dz-title-envios2">Arrastrá el listado de la 2da cuenta</p>
+              <p class="dz-sub" id="dz-sub-envios2">o hacé clic para elegirlo · .xlsx/.xls</p>
+            </div>
+            <input type="file" id="input-envios2" accept=".xlsx,.xls">
+            <div class="file-chip step-hidden" id="chip-envios2">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.4"/><path d="M14 2v5h5" stroke="currentColor" stroke-width="1.4"/></svg>
+              <span class="name" id="name-envios2">archivo.xlsx</span>
+              <button id="btn-quitar-envios2" aria-label="Quitar archivo" type="button">&times;</button>
+            </div>
           </div>
         </div>
       </div>
@@ -582,6 +613,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return mapaEnvios;
   }
 
+  // Promedio de los costos de flex reales (>0) de un mapa de envíos — para usar como
+  // reemplazo cuando un envío encontrado figura en $0 (se asume error de carga de la logística).
+  function promedioFlexPositivo(mapaEnvios){
+    const valores = Object.values(mapaEnvios).filter(v => v > 0);
+    if (!valores.length) return 0;
+    return valores.reduce((s, v) => s + v, 0) / valores.length;
+  }
+
   const MESES_ES = { enero: 0, febrero: 1, marzo: 2, abril: 3, mayo: 4, junio: 5, julio: 6,
     agosto: 7, septiembre: 8, setiembre: 8, octubre: 9, noviembre: 10, diciembre: 11 };
 
@@ -675,7 +714,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   // mapaSku: { 'sku_normalizado': { producto, dueño, ventas: [{ idVenta, fechaMs, estado }, ...] } }
-  function cruzarMovimientosPago(movimientos, cashbacks, mapaSku, mapaEnvios, fechaCorte, dueñoPropio){
+  function cruzarMovimientosPago(movimientos, cashbacks, mapaSku, mapaEnvios, promedioFlexReal, fechaCorte, dueñoPropio){
     const identificados = [];
     let sinIdentificarMonto = 0;
     let sinIdentificarCount = 0;
@@ -683,6 +722,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     let canceladaCount = 0;
     let flexDescontadoTotal = 0;
     let flexDescontadoCount = 0;
+    let flexPromedioUsadoCount = 0;
     const flexPorVenta = {}; // '# de venta' -> costo real de flex (para aplicar también en la hoja Ventas)
 
     for (const m of movimientos){
@@ -722,13 +762,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
       // Descontar el costo real de flex de esta venta puntual, si viene en el archivo de envíos.
       // Se busca primero por el order_id del propio archivo de MercadoPago, y si no, por el
-      // # de venta ya confirmado por fecha/hora.
+      // # de venta ya confirmado por fecha/hora. Si el envío está pero figura en $0, se toma
+      // como un error de carga de la logística y se usa el promedio real del mes en su lugar.
       let flexDescontado = 0;
       if (mapaEnvios){
         const claveEnvio = (m.orderId && mapaEnvios[m.orderId] !== undefined) ? m.orderId
           : (idVenta && mapaEnvios[idVenta] !== undefined) ? idVenta : null;
         if (claveEnvio){
           flexDescontado = mapaEnvios[claveEnvio];
+          if (flexDescontado === 0 && promedioFlexReal > 0){
+            flexDescontado = promedioFlexReal;
+            flexPromedioUsadoCount += 1;
+          }
           flexDescontadoTotal += flexDescontado;
           flexDescontadoCount += 1;
           if (idVenta) flexPorVenta[idVenta] = flexDescontado;
@@ -756,7 +801,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         idVenta: '', confirmado: false, flexDescontado: 0,
       });
     }
-    return { identificados, sinIdentificarMonto, sinIdentificarCount, canceladaMonto, canceladaCount, flexDescontadoTotal, flexDescontadoCount, flexPorVenta };
+    return { identificados, sinIdentificarMonto, sinIdentificarCount, canceladaMonto, canceladaCount, flexDescontadoTotal, flexDescontadoCount, flexPromedioUsadoCount, flexPorVenta };
   }
 
   // Aplica el costo real de flex (ya determinado por venta, cruzando SKU+fecha contra MercadoPago
@@ -1102,19 +1147,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const porFuente = fuentes.map(f => {
       const rango = (campo) => `'${f.nombreHoja}'!$${colLetter(f.col[campo])}$2:$${colLetter(f.col[campo])}$${f.n + 1}`;
       const rTotal = rango('Total (ARS)'), rEstado = rango('Estado'),
-            rIngresos = rango('Ingresos por productos (ARS)'), rProducto = rango('Producto');
+            rIngresos = rango('Ingresos por productos (ARS)'), rProducto = rango('Producto'),
+            rCostoFlex = rango('Costo flex');
       const noExcluida = `${rEstado},"<>*cancelad*",${rEstado},"<>*devoluc*",${rEstado},"<>*devuelto*"`;
       const esCancelOSearch = (palabra) => `ISNUMBER(SEARCH("${palabra}",${rEstado}))`;
       const cualquierExcluida = `((${esCancelOSearch('cancelad')}+${esCancelOSearch('devoluc')}+${esCancelOSearch('devuelto')})>0)`;
       // "Es mío": el producto de esa fila aparece listado en el bloque principal de Resumen
       const esMiProducto = `(COUNTIF(Resumen!$A$${bloquePrincipal.primeraFilaDatos}:$A$${bloquePrincipal.ultimaFilaDatos},${rProducto})>0)`;
-      return { rTotal, rIngresos, noExcluida, cualquierExcluida, esMiProducto };
+      return { rTotal, rIngresos, rCostoFlex, noExcluida, cualquierExcluida, esMiProducto };
     });
     const suma = (partes) => partes.length === 1 ? partes[0] : `(${partes.join('+')})`;
 
     const facturacionF = suma(porFuente.map(pf => `SUMIFS(${pf.rIngresos},${pf.noExcluida})`));
     const ingresoFinalF = suma(porFuente.map(pf => `SUMIFS(${pf.rTotal},${pf.noExcluida})`));
     const impactoDevolF = suma(porFuente.map(pf => `SUMPRODUCT(${pf.cualquierExcluida}*${pf.esMiProducto}*${pf.rTotal})`));
+    const flexPagadoF = '-' + suma(porFuente.map(pf => `SUM(${pf.rCostoFlex})`));
 
     const filaSubtituloPropio = 3;
     const subP = ws.getCell(filaSubtituloPropio, 1);
@@ -1122,7 +1169,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     subP.font = { name: FONT, size: 11, bold: true };
 
     const filaFact = 4, filaIngFinal = 5, filaIngFinalPropio = 6, filaIngFinalAjeno = 7,
-          filaGananciaTotal = 8, filaCostoOp = 9, filaImpactoDevol = 10, filaGananciaFinal = 11;
+          filaGananciaTotal = 8, filaCostoOp = 9, filaFlexPagado = 10, filaImpactoDevol = 11, filaGananciaFinal = 12;
 
     // Desglose de "Total ingresos finales": cuánto de esa plata es tuya vs. de terceros
     const propioIngresoF = `SUMPRODUCT(${rResumenE},${rResumenC})`;
@@ -1137,6 +1184,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       [filaGananciaTotal, 'Ganancia neta total (mis productos)',
         { formula: `SUMPRODUCT((${rResumenF}<>"")*(${rResumenE}-${rResumenF})*${rResumenC})` }, FMT_MONEY],
       [filaCostoOp, 'Costo total operativo (Meli + flex)', { formula: `IFERROR((B${filaFact}-B${filaIngFinal})/B${filaFact},"")` }, FMT_PCT],
+      [filaFlexPagado, 'Total de flex pagado (según logística)', { formula: flexPagadoF }, FMT_MONEY],
       [filaImpactoDevol, 'Impacto devoluciones/cancelaciones (mis productos)', { formula: impactoDevolF }, FMT_MONEY],
       [filaGananciaFinal, 'Ganancia neta final (mis productos, incl. devoluciones)',
         { formula: `B${filaGananciaTotal}+B${filaImpactoDevol}` }, FMT_MONEY],
@@ -1321,7 +1369,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       huboNotas = true;
     }
     if (cruce.flexDescontadoCount > 0){
-      escribirNota(`Costo real de flex ya descontado de estas ventas, según tu archivo de envíos (${cruce.flexDescontadoCount} mov.)`, -cruce.flexDescontadoTotal);
+      const notaPromedio = cruce.flexPromedioUsadoCount > 0
+        ? ` (${cruce.flexPromedioUsadoCount} de esos, con costo $0 en la logística, se completaron con el promedio del mes)`
+        : '';
+      escribirNota(`Costo real de flex ya descontado de estas ventas, según tu archivo de envíos (${cruce.flexDescontadoCount} mov.)${notaPromedio}`, -cruce.flexDescontadoTotal);
       huboNotas = true;
     }
     if (cruce.sinIdentificarCount > 0){
@@ -1461,12 +1512,33 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       defaultTitle: 'Arrastrá el listado de envíos', defaultSub: 'o hacé clic para elegirlo · .xlsx/.xls',
       archivo: null,
     },
+    settlement2: {
+      dz: document.getElementById('dz-settlement2'), input: document.getElementById('input-settlement2'),
+      chip: document.getElementById('chip-settlement2'), name: document.getElementById('name-settlement2'),
+      title: document.getElementById('dz-title-settlement2'), sub: document.getElementById('dz-sub-settlement2'),
+      btnQuitar: document.getElementById('btn-quitar-settlement2'),
+      defaultTitle: 'Arrastrá el reporte de la 2da cuenta', defaultSub: 'o hacé clic para elegirlo · .xlsx',
+      archivo: null,
+    },
+    envios2: {
+      dz: document.getElementById('dz-envios2'), input: document.getElementById('input-envios2'),
+      chip: document.getElementById('chip-envios2'), name: document.getElementById('name-envios2'),
+      title: document.getElementById('dz-title-envios2'), sub: document.getElementById('dz-sub-envios2'),
+      btnQuitar: document.getElementById('btn-quitar-envios2'),
+      defaultTitle: 'Arrastrá el listado de la 2da cuenta', defaultSub: 'o hacé clic para elegirlo · .xlsx/.xls',
+      archivo: null,
+    },
   };
   const zonaVentas1 = document.getElementById('zona-ventas1');
   const zonaVentas2 = document.getElementById('zona-ventas2');
   const zonaSettlement = document.getElementById('zona-settlement');
+  const zonaSettlement2 = document.getElementById('zona-settlement2');
+  const zonaEnvios2 = document.getElementById('zona-envios2');
   const zoneLabel1 = document.getElementById('zone-label-1');
   const zoneLabel2 = document.getElementById('zone-label-2');
+  const zoneLabelSettlement = document.getElementById('zone-label-settlement');
+  const zoneLabelSettlement2 = document.getElementById('zone-label-settlement2');
+  const zoneLabelEnvios2 = document.getElementById('zone-label-envios2');
   const fechaCorteInput = document.getElementById('fecha-corte');
 
   const personaSelect = document.getElementById('persona-select');
@@ -1487,6 +1559,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       zonaVentas1.classList.add('step-hidden');
       zonaVentas2.classList.add('step-hidden');
       zonaSettlement.classList.add('step-hidden');
+      zonaSettlement2.classList.add('step-hidden');
+      zonaEnvios2.classList.add('step-hidden');
       return;
     }
     zonaVentas1.classList.remove('step-hidden');
@@ -1502,9 +1576,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       zoneLabel2.innerHTML = `<span class="num">2</span> Ventas de ${nombreCta2}`;
       zonas.v2.defaultTitle = `Arrastrá el Excel de ${nombreCta2}`;
       if (!zonas.v2.archivo){ zonas.v2.title.textContent = zonas.v2.defaultTitle; }
+
+      zoneLabelSettlement.innerHTML = `<span class="num">+</span> Cobros de ${nombreCta1} (opcional)`;
+      zonaSettlement2.classList.remove('step-hidden');
+      zonaEnvios2.classList.remove('step-hidden');
+      zoneLabelSettlement2.innerHTML = `<span class="num">+</span> Cobros de ${nombreCta2}`;
+      zoneLabelEnvios2.innerHTML = `<span class="num">+</span> Envíos de ${nombreCta2}`;
+      zonas.settlement2.defaultTitle = `Arrastrá el reporte de ${nombreCta2}`;
+      zonas.envios2.defaultTitle = `Arrastrá el listado de ${nombreCta2}`;
+      if (!zonas.settlement2.archivo){ zonas.settlement2.title.textContent = zonas.settlement2.defaultTitle; }
+      if (!zonas.envios2.archivo){ zonas.envios2.title.textContent = zonas.envios2.defaultTitle; }
     } else {
       zonaVentas2.classList.add('step-hidden');
       limpiarArchivo('v2');
+      zoneLabelSettlement.innerHTML = `<span class="num">+</span> Existencias (opcional)`;
+      zonaSettlement2.classList.add('step-hidden');
+      zonaEnvios2.classList.add('step-hidden');
+      limpiarArchivo('settlement2');
+      limpiarArchivo('envios2');
     }
   }
 
@@ -1653,17 +1742,32 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             }
           }
         }
-        const bufSettlement = await leerComoArrayBuffer(zonas.settlement.archivo);
-        const { movimientos, cashbacks } = leerMovimientosPago(bufSettlement);
 
+        // Cobros: la 1ra cuenta siempre; la 2da se suma si se cargó (modo combo)
+        const bufSettlement = await leerComoArrayBuffer(zonas.settlement.archivo);
+        const r1 = leerMovimientosPago(bufSettlement);
+        let movimientos = r1.movimientos, cashbacks = r1.cashbacks;
+        if (zonas.settlement2.archivo){
+          const bufSettlement2 = await leerComoArrayBuffer(zonas.settlement2.archivo);
+          const r2 = leerMovimientosPago(bufSettlement2);
+          movimientos = movimientos.concat(r2.movimientos);
+          cashbacks = cashbacks.concat(r2.cashbacks);
+        }
+
+        // Envíos: opcional, también se combinan las dos cuentas si están cargadas
         let mapaEnvios = null;
         if (zonas.envios.archivo){
           const bufEnvios = await leerComoArrayBuffer(zonas.envios.archivo);
           mapaEnvios = leerEnvios(bufEnvios);
+          if (zonas.envios2.archivo){
+            const bufEnvios2 = await leerComoArrayBuffer(zonas.envios2.archivo);
+            Object.assign(mapaEnvios, leerEnvios(bufEnvios2));
+          }
         }
 
         const fechaCorte = fechaCorteInput.value ? new Date(fechaCorteInput.value + 'T23:59:59') : new Date();
-        const cruce = cruzarMovimientosPago(movimientos, cashbacks, mapaSku, mapaEnvios, fechaCorte, op.dueño);
+        const promedioFlexReal = mapaEnvios ? promedioFlexPositivo(mapaEnvios) : 0;
+        const cruce = cruzarMovimientosPago(movimientos, cashbacks, mapaSku, mapaEnvios, promedioFlexReal, fechaCorte, op.dueño);
         existencias = { cruce, fechaCorte, dueño: op.dueño };
         modo = mapaEnvios ? 'Meli + MercadoPago + Flex real' : 'Meli + MercadoPago';
 
@@ -1727,6 +1831,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     limpiarArchivo('v2');
     limpiarArchivo('settlement');
     limpiarArchivo('envios');
+    limpiarArchivo('settlement2');
+    limpiarArchivo('envios2');
     fechaCorteInput.value = '';
     personaSelect.value = '';
     actualizarZonasSegunPersona();
