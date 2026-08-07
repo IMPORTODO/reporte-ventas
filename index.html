@@ -317,10 +317,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           <strong>⚠ Productos sin costo cargado (ganancia vacía):</strong>
           <ul id="lista-sin-costo"></ul>
         </div>
-        <div id="warn-sin-envio" class="step-hidden" style="margin-top:10px;">
-          <strong>⚠ Ventas sin match en el archivo de envíos (se usó el costo promedio de flex del mes):</strong>
-          <ul id="lista-sin-envio"></ul>
-        </div>
       </div>
 
       <br>
@@ -766,44 +762,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // Aplica el costo real de flex (ya determinado por venta, cruzando SKU+fecha contra MercadoPago
   // y el listado de envíos) directamente sobre las filas de Ventas: ajusta "Costo flex" y "Total (ARS)".
   // Sin este cruce, esas columnas quedan tal cual las reporta Meli, sin ningún descuento.
-  function tieneValor(v){
-    return v !== undefined && v !== null && v !== 0;
-  }
-
-  // Determina el tipo de envío de una fila según las columnas propias del export de Meli:
-  // - Si "Costos de envío (ARS)" (columna I) trae un valor, el envío fue por Mercado Envíos
-  //   y ya tiene su costo propio informado — NO corresponde cargarle costo de flex.
-  // - Si esa columna está vacía pero "Descuentos y bonificaciones" (columna K) trae un valor,
-  //   el envío fue por Flex — ahí sí corresponde buscar/estimar el costo de flex.
-  // - Si ambas están vacías, no se detectó envío de ningún tipo: no se toca nada.
-  function esEnvioFlex(f){
-    if (tieneValor(f["Costos de envío (ARS)"])) return false;
-    return tieneValor(f["Descuentos y bonificaciones"]);
-  }
-
-  function aplicarFlexReal(filas, flexPorVenta, promedioFlex){
+  function aplicarFlexReal(filas, flexPorVenta){
     let aplicados = 0;
-    let promediados = 0;
-    const sinMatch = [];
     for (const f of filas){
-      if (!esEnvioFlex(f)) continue; // Mercado Envíos, o sin envío detectado: no corresponde flex
-
       const costo = flexPorVenta[f['# de venta']];
       if (costo !== undefined){
         f['Costo flex'] = -costo;
         f['Total (ARS)'] = f['Total (ARS)'] - costo;
         aplicados += 1;
-      } else if (promedioFlex != null){
-        // Era Flex pero no se encontró esta venta en el archivo de envíos: en vez de
-        // dejarla en $0, se le aplica el costo promedio de flex del propio mes
-        // (calculado sobre las ventas Flex que sí matchearon).
-        f['Costo flex'] = -promedioFlex;
-        f['Total (ARS)'] = f['Total (ARS)'] - promedioFlex;
-        promediados += 1;
-        sinMatch.push(f['# de venta']);
       }
     }
-    return { aplicados, promediados, sinMatch };
+    return aplicados;
   }
 
   function combinarVentasYCostos(filas, desglosePresentes, costos, personaSeleccionada){
@@ -1548,10 +1517,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const warnBox = document.getElementById('warn-box');
   const warnSinMapeo = document.getElementById('warn-sin-mapeo');
   const warnSinCosto = document.getElementById('warn-sin-costo');
-  const warnSinEnvio = document.getElementById('warn-sin-envio');
   const listaSinMapeo = document.getElementById('lista-sin-mapeo');
   const listaSinCosto = document.getElementById('lista-sin-costo');
-  const listaSinEnvio = document.getElementById('lista-sin-envio');
   const resetBtn = document.getElementById('reset-btn');
   const statusConexion = document.getElementById('status-conexion');
   const statusTexto = document.getElementById('status-texto');
@@ -1647,7 +1614,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const todosDesglose = [];
       const sinMapeoTotal = new Set();
       const sinCostoTotal = new Set();
-      const sinEnvioTotal = new Set();
 
       for (let i = 0; i < op.cuentas.length; i++){
         const nombreCuenta = op.cuentas[i];
@@ -1703,15 +1669,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
         // El flex real (si se cargó el listado de envíos) se aplica a las ventas de todas las
         // cuentas, así la hoja Ventas/Resumen/Analítica también reflejan el costo real y no uno fijo.
-        // Para las ventas que no matchean contra el archivo de envíos, se usa el costo promedio
-        // de flex del mes (promedio de todas las ventas que sí matchearon) en vez de dejarlas en $0.
         if (Object.keys(cruce.flexPorVenta).length > 0){
-          const valoresFlex = Object.values(cruce.flexPorVenta);
-          const promedioFlex = valoresFlex.reduce((a, b) => a + b, 0) / valoresFlex.length;
-          for (const c of cuentas){
-            const r = aplicarFlexReal(c.filas, cruce.flexPorVenta, promedioFlex);
-            r.sinMatch.forEach(id => sinEnvioTotal.add(id));
-          }
+          for (const c of cuentas) aplicarFlexReal(c.filas, cruce.flexPorVenta);
         }
       }
 
@@ -1741,7 +1700,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         + (existencias ? ' · Existencias incluida (' + existencias.cruce.identificados.length + ' movimientos)' : '') + '.';
       successFilename.textContent = nombreSalida;
 
-      const sinMapeo = [...sinMapeoTotal], sinCosto = [...sinCostoTotal], sinEnvio = [...sinEnvioTotal];
+      const sinMapeo = [...sinMapeoTotal], sinCosto = [...sinCostoTotal];
       if (sinMapeo.length){
         listaSinMapeo.innerHTML = sinMapeo.map(t => `<li>${t}</li>`).join('');
         warnSinMapeo.classList.remove('step-hidden');
@@ -1752,12 +1711,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         warnSinCosto.classList.remove('step-hidden');
       } else warnSinCosto.classList.add('step-hidden');
 
-      if (sinEnvio.length){
-        listaSinEnvio.innerHTML = sinEnvio.map(t => `<li>${t}</li>`).join('');
-        warnSinEnvio.classList.remove('step-hidden');
-      } else warnSinEnvio.classList.add('step-hidden');
-
-      warnBox.classList.toggle('show', sinMapeo.length > 0 || sinCosto.length > 0 || sinEnvio.length > 0);
+      warnBox.classList.toggle('show', sinMapeo.length > 0 || sinCosto.length > 0);
 
       stepForm.style.display = 'none';
       stepSuccess.classList.add('show');
