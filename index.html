@@ -110,6 +110,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   .mark-icon{ flex: 0 0 auto; width: 34px; height: 34px; color: var(--accent); }
   p.lede{ font-size: 15px; line-height: 1.55; color: var(--ink-soft); margin: 0; max-width: 48ch; }
   .card{ background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: clamp(20px, 4vw, 30px); }
+  .zone-label{ font-size: 12.5px; font-weight: 700; color: var(--ink); margin: 0 0 8px; display: flex; align-items: center; gap: 7px; }
+  .zone-label .num{ width: 18px; height: 18px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-ink);
+    font-size: 11px; display: inline-flex; align-items:center; justify-content:center; flex-shrink: 0; }
+  .zone-hint{ font-size: 12.5px; color: var(--ink-soft); margin: 0; }
+  .zone-hint a{ color: var(--accent-ink); text-decoration: underline; cursor: pointer; }
+
   .dropzone{ border: 1.5px dashed #CFC5AE; border-radius: calc(var(--radius) - 4px); background: #FCFBF8; padding: 30px 20px;
     text-align: center; cursor: pointer; transition: border-color .15s ease, background-color .15s ease, transform .1s ease; outline-offset: 3px; }
   .dropzone:hover{ border-color: var(--accent); background: #FDF9F1; }
@@ -133,6 +139,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px; background: #FCFBF8; color: var(--ink); }
   .field input[type="number"]:focus{ outline: none; border-color: var(--accent); background: #fff; }
   .field input[type="number"]::-webkit-outer-spin-button, .field input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance: none; margin:0; }
+  .field input[type="date"]{ width: 100%; font-family: 'SF Mono', 'Cascadia Code', Consolas, 'Courier New', monospace; font-size: 14px;
+    padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px; background: #FCFBF8; color: var(--ink); }
+  .field input[type="date"]:focus{ outline: none; border-color: var(--accent); background: #fff; }
   .field select{
     width: 100%; font-size: 14.5px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px;
     background: #FCFBF8; color: var(--ink); font-family: inherit; cursor: pointer;
@@ -198,30 +207,78 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   <div class="card">
     <div id="step-form">
-      <div class="dropzone" id="dz-ventas" tabindex="0" role="button" aria-label="Elegir o arrastrar el Excel de ventas de Mercado Libre">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <p class="dz-title" id="dz-title">Arrastrá tu Excel de Meli acá</p>
-        <p class="dz-sub" id="dz-sub">o hacé clic para elegirlo · .xlsx</p>
-      </div>
-      <input type="file" id="input-ventas" accept=".xlsx,.xls">
-      <div class="file-chip step-hidden" id="chip-ventas">
-        <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.4"/><path d="M14 2v5h5" stroke="currentColor" stroke-width="1.4"/></svg>
-        <span class="name" id="name-ventas">archivo.xlsx</span>
-        <button id="btn-quitar" aria-label="Quitar archivo" type="button">&times;</button>
-      </div>
-
-      <div class="field">
-        <label for="costo-flex">Costo flex del mes</label>
-        <input type="number" id="costo-flex" inputmode="decimal" placeholder="Ej: 8000" min="0" step="any">
-        <p class="hint">Lo que pagaste vos, por fuera de Meli, en los envíos que salieron de su logística.</p>
-      </div>
-
       <div class="field">
         <label for="persona-select">¿Quién sos?</label>
         <select id="persona-select">
           <option value="">Elegí tu nombre...</option>
         </select>
         <p class="hint">Así el reporte separa tus productos de los de otros vendedores en tu cuenta.</p>
+      </div>
+
+      <div class="zone step-hidden" id="zona-ventas1">
+        <p class="zone-label" id="zone-label-1"><span class="num">1</span> Ventas</p>
+        <div class="dropzone" id="dz-ventas" tabindex="0" role="button" aria-label="Elegir o arrastrar el Excel de ventas de Mercado Libre">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <p class="dz-title" id="dz-title">Arrastrá tu Excel de Meli acá</p>
+          <p class="dz-sub" id="dz-sub">o hacé clic para elegirlo · .xlsx</p>
+        </div>
+        <input type="file" id="input-ventas" accept=".xlsx,.xls">
+        <div class="file-chip step-hidden" id="chip-ventas">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.4"/><path d="M14 2v5h5" stroke="currentColor" stroke-width="1.4"/></svg>
+          <span class="name" id="name-ventas">archivo.xlsx</span>
+          <button id="btn-quitar" aria-label="Quitar archivo" type="button">&times;</button>
+        </div>
+      </div>
+
+      <div class="zone step-hidden" id="zona-ventas2" style="margin-top:14px;">
+        <p class="zone-label" id="zone-label-2"><span class="num">2</span> Ventas de la segunda cuenta</p>
+        <div class="dropzone" id="dz-ventas2" tabindex="0" role="button" aria-label="Elegir o arrastrar el Excel de ventas de la segunda cuenta">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <p class="dz-title" id="dz-title2">Arrastrá el Excel de la 2da cuenta</p>
+          <p class="dz-sub" id="dz-sub2">o hacé clic para elegirlo · .xlsx</p>
+        </div>
+        <input type="file" id="input-ventas2" accept=".xlsx,.xls">
+        <div class="file-chip step-hidden" id="chip-ventas2">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.4"/><path d="M14 2v5h5" stroke="currentColor" stroke-width="1.4"/></svg>
+          <span class="name" id="name-ventas2">archivo.xlsx</span>
+          <button id="btn-quitar2" aria-label="Quitar archivo" type="button">&times;</button>
+        </div>
+      </div>
+
+      <div class="zone step-hidden" id="zona-settlement" style="margin-top:14px;">
+        <p class="zone-label"><span class="num">+</span> Existencias (opcional)</p>
+        <p class="zone-hint" style="margin-bottom:8px;">Subí solo el Excel de ventas para ver rentabilidad. Sumá el reporte "Cobros" de MercadoPago para agregar la hoja Existencias (plata cobrada y a cobrar, por vendedor).</p>
+        <div class="dropzone" id="dz-settlement" tabindex="0" role="button" aria-label="Elegir o arrastrar el reporte de MercadoPago">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <p class="dz-title" id="dz-title-settlement">Arrastrá el reporte de MercadoPago</p>
+          <p class="dz-sub" id="dz-sub-settlement">o hacé clic para elegirlo · .xlsx</p>
+        </div>
+        <input type="file" id="input-settlement" accept=".xlsx,.xls">
+        <div class="file-chip step-hidden" id="chip-settlement">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.4"/><path d="M14 2v5h5" stroke="currentColor" stroke-width="1.4"/></svg>
+          <span class="name" id="name-settlement">archivo.xlsx</span>
+          <button id="btn-quitar-settlement" aria-label="Quitar archivo" type="button">&times;</button>
+        </div>
+        <div class="field" id="campo-fecha-corte" style="margin-top:12px;">
+          <label for="fecha-corte">Fecha de corte</label>
+          <input type="date" id="fecha-corte">
+          <p class="hint">Lo que se libera hasta esta fecha cuenta como "cobrado"; lo que se libera después, como "a cobrar". Por defecto, hoy.</p>
+        </div>
+
+        <div class="field" id="campo-envios" style="margin-top:12px;">
+          <p class="zone-hint" style="margin-bottom:8px;">Sumá también el listado de envíos de tu logística para descontar el costo real de flex de cada venta (reemplaza cualquier estimación fija). Cubrí un rango de fechas un poco más amplio que tus ventas, por si algún envío se procesa unos días después.</p>
+          <div class="dropzone" id="dz-envios" tabindex="0" role="button" aria-label="Elegir o arrastrar el listado de envíos">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <p class="dz-title" id="dz-title-envios">Arrastrá el listado de envíos</p>
+            <p class="dz-sub" id="dz-sub-envios">o hacé clic para elegirlo · .xlsx/.xls</p>
+          </div>
+          <input type="file" id="input-envios" accept=".xlsx,.xls">
+          <div class="file-chip step-hidden" id="chip-envios">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.4"/><path d="M14 2v5h5" stroke="currentColor" stroke-width="1.4"/></svg>
+            <span class="name" id="name-envios">archivo.xlsx</span>
+            <button id="btn-quitar-envios" aria-label="Quitar archivo" type="button">&times;</button>
+          </div>
+        </div>
       </div>
 
       <button class="primary" id="process-btn" disabled>Generar reporte</button>
@@ -307,14 +364,27 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const ALIAS_PRODUCTO_TITULARES = ['producto'];
   const ALIAS_PRECIO_TITULARES = ['costo pesos total', 'precio paraguai  + sergio py', 'precio paraguai + sergio py'];
   const ALIAS_VENDEDOR_TITULARES = ['vendedor', 'vendedores', 'dueño', 'dueno', 'titular'];
-  const PERSONAS = ['SERGIO', 'ANA', 'SURAK', 'AGUS'];
+  // Cada persona principal puede tener una segunda cuenta (mismo dueño en TITULARES,
+  // solo cambia con qué cuenta de Meli se vendió). AGUS no tiene segunda cuenta.
+  const OPCIONES_PERSONA = [
+    { value: 'SERGIO', label: 'SERGIO', dueño: 'SERGIO', cuentas: ['SERGIO'] },
+    { value: 'FERLAN', label: 'FERLAN', dueño: 'SERGIO', cuentas: ['FERLAN'] },
+    { value: 'SERGIO_FERLAN', label: 'SERGIO y FERLAN', dueño: 'SERGIO', cuentas: ['SERGIO', 'FERLAN'] },
+    { value: 'ANA', label: 'ANA', dueño: 'ANA', cuentas: ['ANA'] },
+    { value: 'EULOGIA', label: 'EULOGIA', dueño: 'ANA', cuentas: ['EULOGIA'] },
+    { value: 'ANA_EULOGIA', label: 'ANA y EULOGIA', dueño: 'ANA', cuentas: ['ANA', 'EULOGIA'] },
+    { value: 'SURAK', label: 'SURAK', dueño: 'SURAK', cuentas: ['SURAK'] },
+    { value: 'ADRICRIVE', label: 'ADRICRIVE', dueño: 'SURAK', cuentas: ['ADRICRIVE'] },
+    { value: 'SURAK_ADRICRIVE', label: 'SURAK y ADRICRIVE', dueño: 'SURAK', cuentas: ['SURAK', 'ADRICRIVE'] },
+    { value: 'AGUS', label: 'AGUS', dueño: 'AGUS', cuentas: ['AGUS'] },
+  ];
 
   // ID de la spreadsheet PÚBLICA (solo MAPING + TITULARES, sin datos sensibles)
   // que replica en vivo la privada mediante IMPORTRANGE.
   // Si se recrea esa spreadsheet en el futuro, alcanza con actualizar este ID.
   const GOOGLE_SHEET_ID = '1kjkSXWw3WixShdlS3aGVRCbOhPOwm0Ko8JBSFN-maZ8';
 
-  function leerVentas(arrayBuffer, costoFlex){
+  function leerVentas(arrayBuffer){
     const wb = XLSX.read(arrayBuffer, { type: 'array' });
     const ws = wb.Sheets[wb.SheetNames[0]];
     const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true, blankrows: true });
@@ -340,6 +410,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     // Opcional, solo para el detalle de devoluciones/cancelaciones (no se muestra en la hoja Ventas)
     const idxMotivo = indiceDe('Descripción del estado');
+    const idxSku = indiceDe('SKU');
 
     const filas = [];
     for (let i = filaHeader + 1; i < aoa.length; i++){
@@ -348,22 +419,23 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (esVacio(idVenta)) continue;
 
       const descuentos = fila[indices["Descuentos y bonificaciones"]];
-      const aplicaFlex = !esVacio(descuentos);
       const totalOriginal = parseFloat(fila[indices["Total (ARS)"]]) || 0;
-      const totalFinal = aplicaFlex ? (totalOriginal - costoFlex) : totalOriginal;
       const ingresos = parseFloat(fila[indices["Ingresos por productos (ARS)"]]) || 0;
       const unidades = parseFloat(fila[indices["Unidades"]]) || 0;
 
+      // El costo flex ya no se asume fijo: queda vacío acá y se completa después,
+      // por venta, si se cargó el listado de envíos de la logística (ver aplicarFlexReal).
       const obj = {
         "# de venta": String(idVenta),
         "Fecha de venta": fila[indices["Fecha de venta"]],
         "Estado": fila[indices["Estado"]],
         "Motivo": idxMotivo !== -1 ? fila[idxMotivo] : '',
-        "Costo flex": aplicaFlex ? -costoFlex : null,
+        "SKU": idxSku !== -1 ? fila[idxSku] : '',
+        "Costo flex": null,
         "Unidades": unidades,
         "Ingresos por productos (ARS)": ingresos,
         "Descuentos y bonificaciones": esVacio(descuentos) ? null : parseFloat(descuentos),
-        "Total (ARS)": totalFinal,
+        "Total (ARS)": totalOriginal,
         "Venta por unidad": unidades ? ingresos / unidades : null,
         "Título de la publicación": fila[indices["Título de la publicación"]],
       };
@@ -472,6 +544,237 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return !!n && PALABRAS_EXCLUSION.some(p => n.includes(p));
   }
 
+  // ---------- Existencias: cruce con el reporte de MercadoPago (Cobros o Liberaciones), por SKU ----------
+  const ALIAS_SKU_PAGO = ['código de producto sku', 'sku producto (seller_custom_field)'];
+  const ALIAS_MONTO_PAGO = ['monto neto de la operación', 'monto recibido (net_received_amount)'];
+  const ALIAS_FECHA_LIB_PAGO = ['fecha corta de liberación de dinero', 'fecha de liberación del pago (date_released_short)'];
+  const ALIAS_FECHA_ORIGEN_PAGO = ['fecha de origen', 'fecha de compra (date_created)'];
+  const ALIAS_ORDER_ID_PAGO = ['número de venta en mercado libre (order_id)', 'número de identificación'];
+  // Formato "Liberaciones": columna TIPO DE OPERACIÓN, válidos = Pago aprobado / Reclamo.
+  // Formato "Cobros": columna Estado de la operación (status), inválido = rejected (el resto sí cuenta).
+  const ALIAS_TIPO_PAGO = ['tipo de operación'];
+  const ALIAS_ESTADO_PAGO = ['estado de la operación (status)'];
+
+  // ---------- Envíos (Flex): costo real por venta, según el archivo de la logística ----------
+  const ALIAS_ID_VENTA_ENVIO = ['id venta ml'];
+  const ALIAS_PRECIO_ENVIO = ['precio'];
+
+  function leerEnvios(arrayBuffer){
+    const wb = XLSX.read(arrayBuffer, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true, blankrows: true });
+    const filaHeader = detectarFilaEncabezado(aoa, 'ID venta ML', 15);
+    if (filaHeader === -1) throw new Error('No se encontró la columna "ID venta ML" en el archivo de envíos.');
+    const encabezado = aoa[filaHeader].map(c => String(c).trim());
+    const idxCol = (alias) => encabezado.findIndex(h => alias.includes(normalizar(h)));
+    const iId = idxCol(ALIAS_ID_VENTA_ENVIO);
+    const iPrecio = idxCol(ALIAS_PRECIO_ENVIO);
+    if (iId === -1 || iPrecio === -1) throw new Error('Al archivo de envíos le faltan columnas ("ID venta ML" / "Precio").');
+
+    const mapaEnvios = {};
+    for (let i = filaHeader + 1; i < aoa.length; i++){
+      const fila = aoa[i] || [];
+      const idRaw = fila[iId];
+      if (esVacio(idRaw)) continue; // fila de totales u otra sin venta asociada
+      const id = String(Math.trunc(Number(idRaw)) === Number(idRaw) ? Math.trunc(Number(idRaw)) : idRaw);
+      mapaEnvios[id] = (parseFloat(fila[iPrecio]) || 0);
+    }
+    return mapaEnvios;
+  }
+
+  const MESES_ES = { enero: 0, febrero: 1, marzo: 2, abril: 3, mayo: 4, junio: 5, julio: 6,
+    agosto: 7, septiembre: 8, setiembre: 8, octubre: 9, noviembre: 10, diciembre: 11 };
+
+  // "31 de julio de 2026 22:18 hs." -> epoch ms (como aparece en 'Fecha de venta')
+  function parsearFechaVenta(texto){
+    if (esVacio(texto)) return null;
+    const m = String(texto).match(/(\d{1,2})\s+de\s+([a-záéíóúñ]+)\s+de\s+(\d{4})\s+(\d{1,2}):(\d{2})/i);
+    if (!m) return null;
+    const mes = MESES_ES[normalizar(m[2])];
+    if (mes === undefined) return null;
+    const t = new Date(parseInt(m[3], 10), mes, parseInt(m[1], 10), parseInt(m[4], 10), parseInt(m[5], 10), 0).getTime();
+    return isNaN(t) ? null : t;
+  }
+
+  // Soporta ISO ("2026-07-31T22:20:45.000-03:00") y "31/07/2026 22:18:01" -> epoch ms
+  function parsearFechaMovimiento(texto){
+    if (esVacio(texto)) return null;
+    const s = String(texto).trim();
+    if (/^\d{4}-\d{2}-\d{2}T/.test(s)){
+      const t = new Date(s).getTime();
+      return isNaN(t) ? null : t;
+    }
+    const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (m){
+      const t = new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10),
+        parseInt(m[4], 10), parseInt(m[5], 10), m[6] ? parseInt(m[6], 10) : 0).getTime();
+      return isNaN(t) ? null : t;
+    }
+    return null;
+  }
+
+  // Tolerancia para confirmar por fecha/hora: 2 horas (da margen a demoras de acreditación)
+  const TOLERANCIA_CONFIRMACION_MS = 2 * 60 * 60 * 1000;
+
+  function leerMovimientosPago(arrayBuffer){
+    const wb = XLSX.read(arrayBuffer, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true, blankrows: false });
+    if (aoa.length < 2) throw new Error('El archivo de MercadoPago está vacío.');
+    const encabezado = aoa[0].map(c => String(c).trim());
+    const idxCol = (alias) => encabezado.findIndex(h => alias.includes(normalizar(h)));
+    const iSku = idxCol(ALIAS_SKU_PAGO);
+    const iMonto = idxCol(ALIAS_MONTO_PAGO);
+    const iFechaLib = idxCol(ALIAS_FECHA_LIB_PAGO);
+    const iFechaOrigen = idxCol(ALIAS_FECHA_ORIGEN_PAGO);
+    const iOrderId = idxCol(ALIAS_ORDER_ID_PAGO);
+    const iTipo = idxCol(ALIAS_TIPO_PAGO);
+    const iEstado = idxCol(ALIAS_ESTADO_PAGO);
+
+    const faltantes = [];
+    if (iSku === -1) faltantes.push('SKU del producto');
+    if (iMonto === -1) faltantes.push('Monto neto/recibido');
+    if (iFechaLib === -1) faltantes.push('Fecha de liberación');
+    if (iTipo === -1 && iEstado === -1) faltantes.push('Tipo/Estado de la operación');
+    if (faltantes.length) throw new Error('Al archivo de MercadoPago le faltan columnas: ' + faltantes.join(', ') + '.');
+
+    const formato = iTipo !== -1 ? 'liberaciones' : 'cobros';
+
+    const movimientos = [];
+    const cashbacks = [];
+    for (let i = 1; i < aoa.length; i++){
+      const fila = aoa[i] || [];
+      if (formato === 'liberaciones'){
+        const tipo = normalizar(fila[iTipo]);
+        if (esVacio(tipo)) continue;
+        if (tipo.startsWith('cashback')){
+          // Bonificación de Meli/MercadoPago (ej. por usar Flex) — no tiene SKU ni se puede
+          // atribuir a un producto puntual, pero sí cuenta como plata real cobrada/a cobrar.
+          cashbacks.push({
+            monto: parseFloat(fila[iMonto]) || 0,
+            fechaLiberacion: esVacio(fila[iFechaLib]) ? '' : String(fila[iFechaLib]).trim(),
+          });
+          continue;
+        }
+        if (!['pago aprobado', 'reclamo'].includes(tipo)) continue;
+      } else {
+        const estado = normalizar(fila[iEstado]);
+        if (esVacio(estado) || estado === 'rejected') continue;
+      }
+      const orderIdRaw = iOrderId !== -1 ? fila[iOrderId] : '';
+      movimientos.push({
+        sku: esVacio(fila[iSku]) ? '' : String(fila[iSku]).trim(),
+        monto: parseFloat(fila[iMonto]) || 0,
+        fechaLiberacion: esVacio(fila[iFechaLib]) ? '' : String(fila[iFechaLib]).trim(),
+        fechaOrigenMs: iFechaOrigen !== -1 ? parsearFechaMovimiento(fila[iFechaOrigen]) : null,
+        orderId: esVacio(orderIdRaw) ? '' : String(Math.trunc(Number(orderIdRaw)) === Number(orderIdRaw) ? Math.trunc(Number(orderIdRaw)) : orderIdRaw).trim(),
+      });
+    }
+    if (movimientos.length === 0 && cashbacks.length === 0) throw new Error('No se encontraron movimientos válidos en el archivo de MercadoPago.');
+    return { movimientos, cashbacks };
+  }
+
+  // mapaSku: { 'sku_normalizado': { producto, dueño, ventas: [{ idVenta, fechaMs, estado }, ...] } }
+  function cruzarMovimientosPago(movimientos, cashbacks, mapaSku, mapaEnvios, fechaCorte, dueñoPropio){
+    const identificados = [];
+    let sinIdentificarMonto = 0;
+    let sinIdentificarCount = 0;
+    let canceladaMonto = 0;
+    let canceladaCount = 0;
+    let flexDescontadoTotal = 0;
+    let flexDescontadoCount = 0;
+    const flexPorVenta = {}; // '# de venta' -> costo real de flex (para aplicar también en la hoja Ventas)
+
+    for (const m of movimientos){
+      const key = normalizar(m.sku);
+      const venta = key ? mapaSku[key] : null;
+      if (!venta){
+        sinIdentificarMonto += m.monto;
+        sinIdentificarCount += 1;
+        continue;
+      }
+
+      // Confirmación por fecha/hora: busca, entre las ventas de este SKU, la más cercana en el tiempo
+      let idVenta = '';
+      let confirmado = false;
+      let estadoVenta = '';
+      if (m.fechaOrigenMs != null && venta.ventas && venta.ventas.length){
+        let mejor = null, mejorDiff = Infinity;
+        for (const v of venta.ventas){
+          if (v.fechaMs == null) continue;
+          const diff = Math.abs(v.fechaMs - m.fechaOrigenMs);
+          if (diff < mejorDiff){ mejorDiff = diff; mejor = v; }
+        }
+        if (mejor && mejorDiff <= TOLERANCIA_CONFIRMACION_MS){
+          idVenta = mejor.idVenta;
+          confirmado = true;
+          estadoVenta = mejor.estado || '';
+        }
+      }
+
+      // Si se pudo confirmar a qué venta corresponde y esa venta está cancelada/devuelta,
+      // ese dinero no cuenta como existencia real — se excluye del reparto.
+      if (confirmado && esVentaExcluidaDelProducto(estadoVenta)){
+        canceladaMonto += m.monto;
+        canceladaCount += 1;
+        continue;
+      }
+
+      // Descontar el costo real de flex de esta venta puntual, si viene en el archivo de envíos.
+      // Se busca primero por el order_id del propio archivo de MercadoPago, y si no, por el
+      // # de venta ya confirmado por fecha/hora.
+      let flexDescontado = 0;
+      if (mapaEnvios){
+        const claveEnvio = (m.orderId && mapaEnvios[m.orderId] !== undefined) ? m.orderId
+          : (idVenta && mapaEnvios[idVenta] !== undefined) ? idVenta : null;
+        if (claveEnvio){
+          flexDescontado = mapaEnvios[claveEnvio];
+          flexDescontadoTotal += flexDescontado;
+          flexDescontadoCount += 1;
+          if (idVenta) flexPorVenta[idVenta] = flexDescontado;
+        }
+      }
+
+      const fechaLib = m.fechaLiberacion ? new Date(m.fechaLiberacion + 'T00:00:00') : null;
+      const cobrado = fechaLib ? (fechaLib.getTime() <= fechaCorte.getTime()) : true;
+      identificados.push({
+        sku: m.sku, producto: venta.producto, dueño: venta.dueño,
+        monto: m.monto - flexDescontado, fechaLiberacion: m.fechaLiberacion, cobrado,
+        idVenta, confirmado, flexDescontado,
+      });
+    }
+
+    // El cashback (bonificación de Meli/MercadoPago) es plata real, propia de quien genera
+    // el reporte — se suma al reparto igual que cualquier otro movimiento propio, ubicado
+    // en cobrado/a cobrar según su propia fecha de liberación.
+    for (const cb of cashbacks){
+      const fechaLib = cb.fechaLiberacion ? new Date(cb.fechaLiberacion + 'T00:00:00') : null;
+      const cobrado = fechaLib ? (fechaLib.getTime() <= fechaCorte.getTime()) : true;
+      identificados.push({
+        sku: '', producto: 'Bonificación Meli/MercadoPago (cashback)', dueño: dueñoPropio,
+        monto: cb.monto, fechaLiberacion: cb.fechaLiberacion, cobrado,
+        idVenta: '', confirmado: false, flexDescontado: 0,
+      });
+    }
+    return { identificados, sinIdentificarMonto, sinIdentificarCount, canceladaMonto, canceladaCount, flexDescontadoTotal, flexDescontadoCount, flexPorVenta };
+  }
+
+  // Aplica el costo real de flex (ya determinado por venta, cruzando SKU+fecha contra MercadoPago
+  // y el listado de envíos) directamente sobre las filas de Ventas: ajusta "Costo flex" y "Total (ARS)".
+  // Sin este cruce, esas columnas quedan tal cual las reporta Meli, sin ningún descuento.
+  function aplicarFlexReal(filas, flexPorVenta){
+    let aplicados = 0;
+    for (const f of filas){
+      const costo = flexPorVenta[f['# de venta']];
+      if (costo !== undefined){
+        f['Costo flex'] = -costo;
+        f['Total (ARS)'] = f['Total (ARS)'] - costo;
+        aplicados += 1;
+      }
+    }
+    return aplicados;
+  }
+
   function combinarVentasYCostos(filas, desglosePresentes, costos, personaSeleccionada){
     const { mapping, titulares, vendedores } = costos;
     const sinMapeo = new Set();
@@ -559,8 +862,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     ws.views = [{ state: 'frozen', ySplit: 1 }];
   }
 
-  function construirVentas(wb, filas, desglosePresentes){
-    const ws = wb.addWorksheet('Ventas');
+  function construirVentas(wb, filas, desglosePresentes, nombreHoja){
+    const ws = wb.addWorksheet(nombreHoja || 'Ventas');
     const headers = [
       '# de venta', 'Fecha de venta', 'Estado', 'Costo flex', 'Unidades', 'Ingresos por productos (ARS)',
       ...desglosePresentes, 'Descuentos y bonificaciones', 'Total (ARS)', 'Venta por unidad',
@@ -608,8 +911,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   // Escribe una sub-tabla de rentabilidad por producto (encabezado + filas) empezando
-  // en filaInicio. La reutilizan tanto la hoja Resumen como cada bloque de Terceros.
-  function escribirBloqueProductos(ws, filaInicio, productos, ventasCol, nVentas){
+  // en filaInicio. "fuentes" es un array de 1 o 2 hojas de Ventas: [{ nombreHoja, col, n }, ...]
+  // Cuando hay 2, las fórmulas de cada fila SUMAN los resultados de ambas hojas
+  // (ej: unidades vendidas = unidades en hoja 1 + unidades en hoja 2).
+  function escribirBloqueProductos(ws, filaInicio, productos, fuentes){
     const headers = ['Producto', 'Cant. ventas', 'Unidades vendidas', 'Venta promedio',
       'Ingreso neto', 'Costo', 'Ganancia neta', '% Ganancia'];
     headers.forEach((h, i) => {
@@ -622,27 +927,38 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
     ws.getRow(filaInicio).height = 26;
 
-    const vProducto = colLetter(ventasCol['Producto']);
-    const vUnidades = colLetter(ventasCol['Unidades']);
-    const vVentaUnidad = colLetter(ventasCol['Venta por unidad']);
-    const vTotal = colLetter(ventasCol['Total (ARS)']);
-    const vEstado = colLetter(ventasCol['Estado']);
-    const rango = (c) => `Ventas!$${c}$2:$${c}$${nVentas + 1}`;
-    const rProducto = rango(vProducto), rUnidades = rango(vUnidades),
-          rVentaUnidad = rango(vVentaUnidad), rTotal = rango(vTotal), rEstado = rango(vEstado);
-    const noExcluida = `${rEstado},"<>*cancelad*",${rEstado},"<>*devoluc*",${rEstado},"<>*devuelto*"`;
+    // Por cada fuente, arma sus rangos + criterio "no excluida"
+    const porFuente = fuentes.map(f => {
+      const rango = (campo) => `'${f.nombreHoja}'!$${colLetter(f.col[campo])}$2:$${colLetter(f.col[campo])}$${f.n + 1}`;
+      const rProducto = rango('Producto'), rUnidades = rango('Unidades'),
+            rVentaUnidad = rango('Venta por unidad'), rTotal = rango('Total (ARS)'), rEstado = rango('Estado');
+      const noExcluida = `${rEstado},"<>*cancelad*",${rEstado},"<>*devoluc*",${rEstado},"<>*devuelto*"`;
+      return { rProducto, rUnidades, rVentaUnidad, rTotal, noExcluida };
+    });
+
+    const suma = (partes) => partes.length === 1 ? partes[0] : `(${partes.join('+')})`;
 
     const ordenado = [...productos].sort((a, b) => b.unidades - a.unidades);
     const primeraFilaDatos = filaInicio + 1;
 
     ordenado.forEach((f, i) => {
       const r = filaInicio + 1 + i;
+      const cantVentasPartes = porFuente.map(pf => `COUNTIFS(${pf.rProducto},A${r},${pf.noExcluida})`);
+      const unidadesPartes = porFuente.map(pf => `SUMIFS(${pf.rUnidades},${pf.rProducto},A${r},${pf.noExcluida})`);
+      const sumaVentaUnidadPartes = porFuente.map(pf => `SUMIFS(${pf.rVentaUnidad},${pf.rProducto},A${r},${pf.noExcluida})`);
+      const sumaTotalPartes = porFuente.map(pf => `SUMIFS(${pf.rTotal},${pf.rProducto},A${r},${pf.noExcluida})`);
+
+      const cantVentasF = suma(cantVentasPartes);
+      const unidadesF = suma(unidadesPartes);
+      const ventaPromedioF = `IFERROR(${suma(sumaVentaUnidadPartes)}/${cantVentasF},"")`;
+      const ingresoNetoF = `IFERROR(${suma(sumaTotalPartes)}/${unidadesF},"")`;
+
       const valores = {
         'Producto': f.producto,
-        'Cant. ventas': { formula: `COUNTIFS(${rProducto},A${r},${noExcluida})` },
-        'Unidades vendidas': { formula: `SUMIFS(${rUnidades},${rProducto},A${r},${noExcluida})` },
-        'Venta promedio': { formula: `IFERROR(AVERAGEIFS(${rVentaUnidad},${rProducto},A${r},${noExcluida}),"")` },
-        'Ingreso neto': { formula: `IFERROR(SUMIFS(${rTotal},${rProducto},A${r},${noExcluida})/SUMIFS(${rUnidades},${rProducto},A${r},${noExcluida}),"")` },
+        'Cant. ventas': { formula: cantVentasF },
+        'Unidades vendidas': { formula: unidadesF },
+        'Venta promedio': { formula: ventaPromedioF },
+        'Ingreso neto': { formula: ingresoNetoF },
         'Costo': (f.costo === null || f.costo === undefined || isNaN(f.costo)) ? null : f.costo,
         'Ganancia neta': { formula: `IF(OR(F${r}="",E${r}=""),"",E${r}-F${r})` },
         '% Ganancia': { formula: `IF(OR(G${r}="",D${r}="",D${r}=0),"",G${r}/D${r})` },
@@ -678,32 +994,56 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return { primeraFilaDatos, ultimaFilaDatos, count: ordenado.length };
   }
 
-  function construirResumen(wb, resumen, ventasCol, nVentas){
+  // bloques = [{ titulo, resumen, fuentes }, ...] — 1 elemento en modo simple,
+  // 3 en modo combo (cuenta1, cuenta2, unificado). Devuelve el rango de filas
+  // del bloque que representa "todos mis productos" (el único, o el unificado),
+  // que es el que va a usar la hoja Analítica.
+  function construirResumen(wb, bloques, persona){
     const ws = wb.addWorksheet('Resumen');
     ws.views = [{ state: 'frozen', ySplit: 1 }];
-    const { ultimaFilaDatos } = escribirBloqueProductos(ws, 1, resumen, ventasCol, nVentas);
 
-    const filaProm = ultimaFilaDatos + 2;
-    const cellLabel = ws.getCell(filaProm, 6);
-    cellLabel.value = 'Promedio rentabilidad final';
-    cellLabel.font = { name: FONT, size: 10, bold: true };
-    cellLabel.alignment = { horizontal: 'right' };
-    const cellVal = ws.getCell(filaProm, 8);
-    cellVal.value = { formula: `IFERROR(SUMPRODUCT((F2:F${ultimaFilaDatos}<>"")*(E2:E${ultimaFilaDatos}-F2:F${ultimaFilaDatos})*C2:C${ultimaFilaDatos})/SUMPRODUCT((F2:F${ultimaFilaDatos}<>"")*D2:D${ultimaFilaDatos}*C2:C${ultimaFilaDatos}),"")` };
-    cellVal.font = { name: FONT, size: 13, bold: true };
-    cellVal.numFmt = FMT_PCT;
-    cellVal.alignment = { horizontal: 'center' };
+    let fila = 1;
+    let bloquePrincipal = null;
+
+    bloques.forEach(bloque => {
+      const tituloCell = ws.getCell(fila, 1);
+      tituloCell.value = bloque.titulo;
+      tituloCell.font = { name: FONT, size: 13, bold: true, color: { argb: 'FF7A5620' } };
+      ws.getRow(fila).height = 22;
+      fila += 1;
+
+      const { primeraFilaDatos, ultimaFilaDatos } = escribirBloqueProductos(ws, fila, bloque.resumen, bloque.fuentes);
+
+      const filaProm = ultimaFilaDatos + 1;
+      const cellLabel = ws.getCell(filaProm, 6);
+      cellLabel.value = 'Promedio rentabilidad';
+      cellLabel.font = { name: FONT, size: 10, bold: true };
+      cellLabel.alignment = { horizontal: 'right' };
+      const cellVal = ws.getCell(filaProm, 8);
+      cellVal.value = { formula: `IFERROR(SUMPRODUCT((F${primeraFilaDatos}:F${ultimaFilaDatos}<>"")*(E${primeraFilaDatos}:E${ultimaFilaDatos}-F${primeraFilaDatos}:F${ultimaFilaDatos})*C${primeraFilaDatos}:C${ultimaFilaDatos})/SUMPRODUCT((F${primeraFilaDatos}:F${ultimaFilaDatos}<>"")*D${primeraFilaDatos}:D${ultimaFilaDatos}*C${primeraFilaDatos}:C${ultimaFilaDatos}),"")` };
+      cellVal.font = { name: FONT, size: 12, bold: true };
+      cellVal.numFmt = FMT_PCT;
+      cellVal.alignment = { horizontal: 'center' };
+
+      if (bloque.esPrincipal) bloquePrincipal = { primeraFilaDatos, ultimaFilaDatos };
+      fila = filaProm + 3; // espacio antes del próximo bloque
+    });
 
     ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
-    return { ultimaFilaDatos };
+    return bloquePrincipal;
   }
 
-  function construirTerceros(wb, resumenTerceros, ventasCol, nVentas){
+  function construirTerceros(wb, resumenTerceros, fuentes, persona){
     const ws = wb.addWorksheet('Terceros');
     ws.getColumn(1).width = 42;
 
+    const notaCell = ws.getCell(1, 1);
+    notaCell.value = `Productos de otros vendedores vendidos en la/s cuenta/s de ${persona} — no son tuyos`;
+    notaCell.font = { name: FONT, size: 12, bold: true, color: { argb: 'FF7A5620' } };
+    ws.getRow(1).height = 22;
+
     if (resumenTerceros.length === 0){
-      const cell = ws.getCell(1, 1);
+      const cell = ws.getCell(3, 1);
       cell.value = 'No hay productos de otros vendedores en este período.';
       cell.font = { name: FONT, size: 10, italic: true, color: { argb: 'FF746B5C' } };
       return { subtotales: {} };
@@ -715,7 +1055,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     const nombres = Object.keys(porDueño).sort();
 
-    let fila = 1;
+    let fila = 3;
     const subtotales = {};
     nombres.forEach(nombre => {
       const tituloCell = ws.getCell(fila, 1);
@@ -723,7 +1063,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       tituloCell.font = { name: FONT, size: 12, bold: true, color: { argb: 'FF7A5620' } };
       fila += 1;
 
-      const { primeraFilaDatos, ultimaFilaDatos } = escribirBloqueProductos(ws, fila, porDueño[nombre], ventasCol, nVentas);
+      const { primeraFilaDatos, ultimaFilaDatos } = escribirBloqueProductos(ws, fila, porDueño[nombre], fuentes);
 
       const filaSubtotal = ultimaFilaDatos + 1;
       const labelCell = ws.getCell(filaSubtotal, 4);
@@ -744,37 +1084,60 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return { subtotales };
   }
 
-  function construirAnalitica(wb, ventasCol, nVentas, terceros, ultimaFilaResumen){
+  function construirAnalitica(wb, fuentes, terceros, bloquePrincipal, persona){
     const ws = wb.addWorksheet('Analítica');
     ws.getColumn(1).width = 46;
     ws.getColumn(2).width = 18;
 
-    const vTotal = colLetter(ventasCol['Total (ARS)']);
-    const vEstado = colLetter(ventasCol['Estado']);
-    const vIngresos = colLetter(ventasCol['Ingresos por productos (ARS)']);
-    const vProducto = colLetter(ventasCol['Producto']);
-    const rango = (c) => `Ventas!$${c}$2:$${c}$${nVentas + 1}`;
-    const rTotal = rango(vTotal), rEstado = rango(vEstado), rIngresos = rango(vIngresos), rProducto = rango(vProducto);
-    const noExcluida = `${rEstado},"<>*cancelad*",${rEstado},"<>*devoluc*",${rEstado},"<>*devuelto*"`;
-    const esCancelOSearch = (palabra) => `ISNUMBER(SEARCH("${palabra}",${rEstado}))`;
-    const cualquierExcluida = `((${esCancelOSearch('cancelad')}+${esCancelOSearch('devoluc')}+${esCancelOSearch('devuelto')})>0)`;
-    // "Es mío": el producto de esa fila aparece listado en la hoja Resumen (mis productos)
-    const esMiProducto = `(COUNTIF(Resumen!$A$2:$A$${ultimaFilaResumen},${rProducto})>0)`;
-    const rResumenF = `Resumen!$F$2:$F$${ultimaFilaResumen}`;
-    const rResumenE = `Resumen!$E$2:$E$${ultimaFilaResumen}`;
-    const rResumenC = `Resumen!$C$2:$C$${ultimaFilaResumen}`;
+    const tituloGeneral = ws.getCell(1, 1);
+    tituloGeneral.value = `Analítica general — ${persona}`;
+    tituloGeneral.font = { name: FONT, size: 13, bold: true, color: { argb: 'FF7A5620' } };
+    ws.getRow(1).height = 24;
 
-    const filaFact = 2, filaIngFinal = 3, filaGananciaTotal = 4, filaCostoOp = 5,
-          filaImpactoDevol = 6, filaGananciaFinal = 7;
+    const rResumenF = `Resumen!$F$${bloquePrincipal.primeraFilaDatos}:$F$${bloquePrincipal.ultimaFilaDatos}`;
+    const rResumenE = `Resumen!$E$${bloquePrincipal.primeraFilaDatos}:$E$${bloquePrincipal.ultimaFilaDatos}`;
+    const rResumenC = `Resumen!$C$${bloquePrincipal.primeraFilaDatos}:$C$${bloquePrincipal.ultimaFilaDatos}`;
+
+    // Por cada hoja de ventas (1 o 2), sus rangos y criterios
+    const porFuente = fuentes.map(f => {
+      const rango = (campo) => `'${f.nombreHoja}'!$${colLetter(f.col[campo])}$2:$${colLetter(f.col[campo])}$${f.n + 1}`;
+      const rTotal = rango('Total (ARS)'), rEstado = rango('Estado'),
+            rIngresos = rango('Ingresos por productos (ARS)'), rProducto = rango('Producto');
+      const noExcluida = `${rEstado},"<>*cancelad*",${rEstado},"<>*devoluc*",${rEstado},"<>*devuelto*"`;
+      const esCancelOSearch = (palabra) => `ISNUMBER(SEARCH("${palabra}",${rEstado}))`;
+      const cualquierExcluida = `((${esCancelOSearch('cancelad')}+${esCancelOSearch('devoluc')}+${esCancelOSearch('devuelto')})>0)`;
+      // "Es mío": el producto de esa fila aparece listado en el bloque principal de Resumen
+      const esMiProducto = `(COUNTIF(Resumen!$A$${bloquePrincipal.primeraFilaDatos}:$A$${bloquePrincipal.ultimaFilaDatos},${rProducto})>0)`;
+      return { rTotal, rIngresos, noExcluida, cualquierExcluida, esMiProducto };
+    });
+    const suma = (partes) => partes.length === 1 ? partes[0] : `(${partes.join('+')})`;
+
+    const facturacionF = suma(porFuente.map(pf => `SUMIFS(${pf.rIngresos},${pf.noExcluida})`));
+    const ingresoFinalF = suma(porFuente.map(pf => `SUMIFS(${pf.rTotal},${pf.noExcluida})`));
+    const impactoDevolF = suma(porFuente.map(pf => `SUMPRODUCT(${pf.cualquierExcluida}*${pf.esMiProducto}*${pf.rTotal})`));
+
+    const filaSubtituloPropio = 3;
+    const subP = ws.getCell(filaSubtituloPropio, 1);
+    subP.value = `Tu ganancia (${persona}, solo tus productos)`;
+    subP.font = { name: FONT, size: 11, bold: true };
+
+    const filaFact = 4, filaIngFinal = 5, filaIngFinalPropio = 6, filaIngFinalAjeno = 7,
+          filaGananciaTotal = 8, filaCostoOp = 9, filaImpactoDevol = 10, filaGananciaFinal = 11;
+
+    // Desglose de "Total ingresos finales": cuánto de esa plata es tuya vs. de terceros
+    const propioIngresoF = `SUMPRODUCT(${rResumenE},${rResumenC})`;
+    const nombresTercerosIng = Object.keys(terceros.subtotales);
+    const ajenoIngresoF = nombresTercerosIng.length
+      ? nombresTercerosIng.map(n => `'Terceros'!${terceros.subtotales[n].col}${terceros.subtotales[n].fila}`).join('+')
+      : '0';
 
     const bloque = [
-      [filaFact, 'Total facturación (cuenta completa)', { formula: `SUMIFS(${rIngresos},${noExcluida})` }, FMT_MONEY],
-      [filaIngFinal, 'Total ingresos finales en mi cuenta', { formula: `SUMIFS(${rTotal},${noExcluida})` }, FMT_MONEY],
+      [filaFact, 'Total facturación (cuenta/s completa/s)', { formula: facturacionF }, FMT_MONEY],
+      [filaIngFinal, 'Total ingresos finales en tu/s cuenta/s', { formula: ingresoFinalF }, FMT_MONEY],
       [filaGananciaTotal, 'Ganancia neta total (mis productos)',
         { formula: `SUMPRODUCT((${rResumenF}<>"")*(${rResumenE}-${rResumenF})*${rResumenC})` }, FMT_MONEY],
       [filaCostoOp, 'Costo total operativo (Meli + flex)', { formula: `IFERROR((B${filaFact}-B${filaIngFinal})/B${filaFact},"")` }, FMT_PCT],
-      [filaImpactoDevol, 'Impacto devoluciones/cancelaciones (mis productos)',
-        { formula: `SUMPRODUCT(${cualquierExcluida}*${esMiProducto}*${rTotal})` }, FMT_MONEY],
+      [filaImpactoDevol, 'Impacto devoluciones/cancelaciones (mis productos)', { formula: impactoDevolF }, FMT_MONEY],
       [filaGananciaFinal, 'Ganancia neta final (mis productos, incl. devoluciones)',
         { formula: `B${filaGananciaTotal}+B${filaImpactoDevol}` }, FMT_MONEY],
     ];
@@ -789,10 +1152,29 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       cVal.alignment = { horizontal: 'center' };
     });
 
+    // Sub-líneas del desglose propio/ajeno (más chicas, indentadas, debajo de "Total ingresos finales")
+    [[filaIngFinalPropio, '· De tus productos (propio)', propioIngresoF, 'FF0F5132'],
+     [filaIngFinalAjeno, '· De productos de terceros (ajeno)', ajenoIngresoF, 'FF7A5620']].forEach(([fila, etiqueta, formula, color]) => {
+      const cLabel = ws.getCell(fila, 1);
+      cLabel.value = etiqueta;
+      cLabel.font = { name: FONT, size: 9.5, italic: true, color: { argb: 'FF746B5C' } };
+      cLabel.alignment = { indent: 1 };
+      const cVal = ws.getCell(fila, 2);
+      cVal.value = { formula: `IFERROR(${formula},0)` };
+      cVal.font = { name: FONT, size: 10, italic: true, color: { argb: color } };
+      cVal.numFmt = FMT_MONEY;
+      cVal.alignment = { horizontal: 'center' };
+    });
+
+    // Destacar la fila de la ganancia final propia
+    ws.getCell(filaGananciaFinal, 1).font = { name: FONT, size: 11, bold: true, color: { argb: 'FF0F5132' } };
+    ws.getCell(filaGananciaFinal, 2).font = { name: FONT, size: 12, bold: true, color: { argb: 'FF0F5132' } };
+    ws.getCell(filaGananciaFinal, 2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1E7DD' } };
+
     // ---- Ingresos netos de terceros, por persona ----
-    const filaTitulo = 9;
+    const filaTitulo = filaGananciaFinal + 2;
     const tCell = ws.getCell(filaTitulo, 1);
-    tCell.value = 'Ingreso neto a transferir a terceros, por persona';
+    tCell.value = `No es tuyo — plata que le pertenece a otros vendedores`;
     tCell.font = { name: FONT, size: 11, bold: true };
 
     const nombres = Object.keys(terceros.subtotales);
@@ -815,8 +1197,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
   }
 
-  function construirDevoluciones(wb, filas){
-    const ws = wb.addWorksheet('Devoluciones y cancelaciones');
+  function construirDevoluciones(wb, filas, nombreHoja){
+    const ws = wb.addWorksheet(nombreHoja || 'Devoluciones y cancelaciones');
     const headers = ['# de venta', 'Fecha de venta', 'Estado', 'Motivo', 'Producto', 'Título de la publicación', 'Total (ARS)'];
     headerRow(ws, headers);
 
@@ -852,33 +1234,280 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
   }
 
-  async function construirReporte(resultado){
+  function construirExistencias(wb, cruce, fechaCorte, personaLabel, dueñoReal){
+    const ws = wb.addWorksheet('Existencias');
+
+    const fechaTexto = `${String(fechaCorte.getDate()).padStart(2, '0')}/${String(fechaCorte.getMonth() + 1).padStart(2, '0')}/${fechaCorte.getFullYear()}`;
+
+    const titulo = ws.getCell(1, 1);
+    titulo.value = `Existencias de ${personaLabel} — foto al ${fechaTexto}`;
+    titulo.font = { name: FONT, size: 13, bold: true, color: { argb: 'FF7A5620' } };
+    ws.getRow(1).height = 24;
+
+    function agruparPorDueño(lista){
+      const out = {};
+      for (const m of lista){ out[m.dueño] = (out[m.dueño] || 0) + m.monto; }
+      return out;
+    }
+    const cobrados = cruce.identificados.filter(m => m.cobrado);
+    const aCobrar = cruce.identificados.filter(m => !m.cobrado);
+    const cobradoPorDueño = agruparPorDueño(cobrados);
+    const aCobrarPorDueño = agruparPorDueño(aCobrar);
+
+    function escribirSeccion(filaInicio, tituloSeccion, porDueño){
+      const tCell = ws.getCell(filaInicio, 1);
+      tCell.value = tituloSeccion;
+      tCell.font = { name: FONT, size: 11, bold: true };
+      let fila = filaInicio + 1;
+
+      const propio = porDueño[dueñoReal] || 0;
+      const cLabel = ws.getCell(fila, 1);
+      cLabel.value = `De tus productos (${personaLabel})`;
+      cLabel.font = { name: FONT, size: 10, bold: true, color: { argb: 'FF0F5132' } };
+      const cVal = ws.getCell(fila, 2);
+      cVal.value = propio;
+      cVal.font = { name: FONT, size: 11, bold: true, color: { argb: 'FF0F5132' } };
+      cVal.numFmt = FMT_MONEY;
+      cVal.alignment = { horizontal: 'center' };
+      fila += 1;
+
+      let total = propio;
+      Object.keys(porDueño).filter(d => d !== dueñoReal).sort().forEach(nombre => {
+        const monto = porDueño[nombre];
+        total += monto;
+        const l = ws.getCell(fila, 1);
+        l.value = `De ${nombre} (terceros)`;
+        l.font = { name: FONT, size: 10 };
+        l.alignment = { indent: 1 };
+        const v = ws.getCell(fila, 2);
+        v.value = monto;
+        v.font = { name: FONT, size: 10, color: { argb: 'FF7A5620' } };
+        v.numFmt = FMT_MONEY;
+        v.alignment = { horizontal: 'center' };
+        fila += 1;
+      });
+
+      const lTotal = ws.getCell(fila, 1);
+      lTotal.value = 'Total';
+      lTotal.font = { name: FONT, size: 10, bold: true };
+      lTotal.border = { top: { style: 'thin', color: { argb: 'FFD9DCE3' } } };
+      const vTotal = ws.getCell(fila, 2);
+      vTotal.value = total;
+      vTotal.font = { name: FONT, size: 11, bold: true };
+      vTotal.numFmt = FMT_MONEY;
+      vTotal.alignment = { horizontal: 'center' };
+      vTotal.border = { top: { style: 'thin', color: { argb: 'FFD9DCE3' } } };
+      return fila + 2;
+    }
+
+    let filaSig = escribirSeccion(3, `Dinero cobrado (liberado hasta el ${fechaTexto})`, cobradoPorDueño);
+    filaSig = escribirSeccion(filaSig, `Dinero a cobrar (pendiente de liberación después del ${fechaTexto})`, aCobrarPorDueño);
+
+    function escribirNota(texto, monto){
+      const l = ws.getCell(filaSig, 1);
+      l.value = texto;
+      l.font = { name: FONT, size: 9.5, italic: true, color: { argb: 'FF746B5C' } };
+      const v = ws.getCell(filaSig, 2);
+      v.value = monto;
+      v.font = { name: FONT, size: 9.5, italic: true, color: { argb: 'FF746B5C' } };
+      v.numFmt = FMT_MONEY;
+      v.alignment = { horizontal: 'center' };
+      filaSig += 1;
+    }
+
+    let huboNotas = false;
+    if (cruce.canceladaCount > 0){
+      escribirNota(`Excluido: ventas canceladas/devueltas identificadas (${cruce.canceladaCount} mov. — no forman parte de tus existencias)`, cruce.canceladaMonto);
+      huboNotas = true;
+    }
+    if (cruce.flexDescontadoCount > 0){
+      escribirNota(`Costo real de flex ya descontado de estas ventas, según tu archivo de envíos (${cruce.flexDescontadoCount} mov.)`, -cruce.flexDescontadoTotal);
+      huboNotas = true;
+    }
+    if (cruce.sinIdentificarCount > 0){
+      escribirNota(`Otros movimientos sin vincular a un producto (retiros, transferencias, etc. — ${cruce.sinIdentificarCount} mov.)`, cruce.sinIdentificarMonto);
+      huboNotas = true;
+    }
+    if (huboNotas) filaSig += 1;
+
+    // ---- Detalle de cada movimiento identificado ----
+    const filaHeaderDetalle = filaSig;
+    const headers = ['SKU', 'Producto', 'Dueño', 'Monto (neto de flex)', 'Flex descontado', 'Fecha de liberación', 'Estado', '# de venta', 'Confirmado por fecha/hora'];
+    headers.forEach((h, i) => {
+      const cell = ws.getCell(filaHeaderDetalle, i + 1);
+      cell.value = h;
+      cell.font = HEADER_FONT;
+      cell.fill = HEADER_FILL;
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = BORDER;
+    });
+    ws.getRow(filaHeaderDetalle).height = 24;
+
+    const ordenado = [...cruce.identificados].sort((a, b) => (a.fechaLiberacion || '').localeCompare(b.fechaLiberacion || ''));
+    ordenado.forEach((m, i) => {
+      const r = filaHeaderDetalle + 1 + i;
+      const valores = [m.sku, m.producto, m.dueño, m.monto, m.flexDescontado ? -m.flexDescontado : '', m.fechaLiberacion, m.cobrado ? 'Cobrado' : 'A cobrar',
+        m.idVenta || '', m.confirmado ? 'Sí' : 'No'];
+      valores.forEach((v, ci) => {
+        const cell = ws.getCell(r, ci + 1);
+        cell.value = v;
+        cell.font = (ci === 8 && !m.confirmado) ? { name: FONT, size: 10, italic: true, color: { argb: 'FF9C7A2E' } } : BODY_FONT;
+        cell.border = BORDER;
+        if (ci === 0 || ci === 7) cell.numFmt = '@';
+        if (ci === 3 || ci === 4) cell.numFmt = FMT_MONEY;
+        if (ci === 8) cell.alignment = { horizontal: 'center' };
+        if (i % 2 === 1) cell.fill = BAND_FILL;
+      });
+    });
+
+    if (ordenado.length === 0){
+      const cell = ws.getCell(filaHeaderDetalle + 1, 1);
+      cell.value = 'No se identificaron movimientos vinculados a productos en este archivo.';
+      cell.font = { name: FONT, size: 10, italic: true, color: { argb: 'FF746B5C' } };
+    }
+
+    ws.getColumn(1).width = 44;
+    ws.getColumn(2).width = 40;
+    ws.getColumn(3).width = 14;
+    ws.getColumn(4).width = 14;
+    ws.getColumn(5).width = 14;
+    ws.getColumn(6).width = 18;
+    ws.getColumn(7).width = 12;
+    ws.getColumn(8).width = 18;
+    ws.getColumn(9).width = 16;
+
+    ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+  }
+
+  // input = { persona, cuentas: [{ nombre, filas, desglosePresentes, resumen, resumenTerceros }, ...],
+  //           unificado: { resumen, resumenTerceros } | null (null si es 1 sola cuenta) }
+  async function construirReporte(input){
     const wb = new ExcelJS.Workbook();
-    const { col, n } = construirVentas(wb, resultado.filas, resultado.desglosePresentes);
-    const { ultimaFilaDatos } = construirResumen(wb, resultado.resumen, col, n);
-    const terceros = construirTerceros(wb, resultado.resumenTerceros, col, n);
-    construirAnalitica(wb, col, n, terceros, Math.max(ultimaFilaDatos, 2));
-    construirDevoluciones(wb, resultado.filas);
+    const { persona, cuentas, unificado } = input;
+    const multi = cuentas.length > 1;
+
+    const fuentes = cuentas.map(c => {
+      const nombreHoja = multi ? `Ventas ${c.nombre}` : 'Ventas';
+      const { col, n } = construirVentas(wb, c.filas, c.desglosePresentes, nombreHoja);
+      return { nombreHoja, col, n };
+    });
+
+    let bloques;
+    if (!multi){
+      bloques = [{ titulo: `Resumen de ${persona} — solo tus productos`, resumen: cuentas[0].resumen, fuentes: [fuentes[0]], esPrincipal: true }];
+    } else {
+      bloques = cuentas.map((c, i) => ({
+        titulo: `Productos de ${c.nombre}`,
+        resumen: c.resumen,
+        fuentes: [fuentes[i]],
+      }));
+      bloques.push({
+        titulo: `Unificado (${cuentas.map(c => c.nombre).join(' + ')})`,
+        resumen: unificado.resumen,
+        fuentes: fuentes,
+        esPrincipal: true,
+      });
+    }
+
+    const bloquePrincipal = construirResumen(wb, bloques, persona);
+
+    const resumenTercerosFinal = multi ? unificado.resumenTerceros : cuentas[0].resumenTerceros;
+    const terceros = construirTerceros(wb, resumenTercerosFinal, fuentes, persona);
+
+    construirAnalitica(wb, fuentes, terceros, bloquePrincipal, persona);
+
+    cuentas.forEach(c => {
+      construirDevoluciones(wb, c.filas, multi ? `Devoluciones ${c.nombre}` : undefined);
+    });
+
+    if (input.existencias){
+      construirExistencias(wb, input.existencias.cruce, input.existencias.fechaCorte, persona, input.existencias.dueño);
+    }
+
     return await wb.xlsx.writeBuffer();
   }
 
   // ---------- UI ----------
-  const dzEl = document.getElementById('dz-ventas');
-  const input = document.getElementById('input-ventas');
-  const chip = document.getElementById('chip-ventas');
-  const nameEl = document.getElementById('name-ventas');
-  const dzTitle = document.getElementById('dz-title');
-  const dzSub = document.getElementById('dz-sub');
-  const btnQuitar = document.getElementById('btn-quitar');
+  const zonas = {
+    v1: {
+      dz: document.getElementById('dz-ventas'), input: document.getElementById('input-ventas'),
+      chip: document.getElementById('chip-ventas'), name: document.getElementById('name-ventas'),
+      title: document.getElementById('dz-title'), sub: document.getElementById('dz-sub'),
+      btnQuitar: document.getElementById('btn-quitar'),
+      defaultTitle: 'Arrastrá tu Excel de Meli acá', defaultSub: 'o hacé clic para elegirlo · .xlsx',
+      archivo: null,
+    },
+    v2: {
+      dz: document.getElementById('dz-ventas2'), input: document.getElementById('input-ventas2'),
+      chip: document.getElementById('chip-ventas2'), name: document.getElementById('name-ventas2'),
+      title: document.getElementById('dz-title2'), sub: document.getElementById('dz-sub2'),
+      btnQuitar: document.getElementById('btn-quitar2'),
+      defaultTitle: 'Arrastrá el Excel de la 2da cuenta', defaultSub: 'o hacé clic para elegirlo · .xlsx',
+      archivo: null,
+    },
+    settlement: {
+      dz: document.getElementById('dz-settlement'), input: document.getElementById('input-settlement'),
+      chip: document.getElementById('chip-settlement'), name: document.getElementById('name-settlement'),
+      title: document.getElementById('dz-title-settlement'), sub: document.getElementById('dz-sub-settlement'),
+      btnQuitar: document.getElementById('btn-quitar-settlement'),
+      defaultTitle: 'Arrastrá el reporte de MercadoPago', defaultSub: 'o hacé clic para elegirlo · .xlsx',
+      archivo: null,
+    },
+    envios: {
+      dz: document.getElementById('dz-envios'), input: document.getElementById('input-envios'),
+      chip: document.getElementById('chip-envios'), name: document.getElementById('name-envios'),
+      title: document.getElementById('dz-title-envios'), sub: document.getElementById('dz-sub-envios'),
+      btnQuitar: document.getElementById('btn-quitar-envios'),
+      defaultTitle: 'Arrastrá el listado de envíos', defaultSub: 'o hacé clic para elegirlo · .xlsx/.xls',
+      archivo: null,
+    },
+  };
+  const zonaVentas1 = document.getElementById('zona-ventas1');
+  const zonaVentas2 = document.getElementById('zona-ventas2');
+  const zonaSettlement = document.getElementById('zona-settlement');
+  const zoneLabel1 = document.getElementById('zone-label-1');
+  const zoneLabel2 = document.getElementById('zone-label-2');
+  const fechaCorteInput = document.getElementById('fecha-corte');
 
-  const costoFlexInput = document.getElementById('costo-flex');
   const personaSelect = document.getElementById('persona-select');
-  PERSONAS.forEach(nombre => {
+  OPCIONES_PERSONA.forEach(op => {
     const opt = document.createElement('option');
-    opt.value = nombre;
-    opt.textContent = nombre.charAt(0) + nombre.slice(1).toLowerCase();
+    opt.value = op.value;
+    opt.textContent = op.label;
     personaSelect.appendChild(opt);
   });
+
+  function opcionActual(){
+    return OPCIONES_PERSONA.find(o => o.value === personaSelect.value) || null;
+  }
+
+  function actualizarZonasSegunPersona(){
+    const op = opcionActual();
+    if (!op){
+      zonaVentas1.classList.add('step-hidden');
+      zonaVentas2.classList.add('step-hidden');
+      zonaSettlement.classList.add('step-hidden');
+      return;
+    }
+    zonaVentas1.classList.remove('step-hidden');
+    zonaSettlement.classList.remove('step-hidden');
+    const nombreCta1 = op.cuentas[0];
+    zoneLabel1.innerHTML = `<span class="num">1</span> Ventas de ${nombreCta1}`;
+    zonas.v1.defaultTitle = `Arrastrá el Excel de ${nombreCta1}`;
+    if (!zonas.v1.archivo){ zonas.v1.title.textContent = zonas.v1.defaultTitle; }
+
+    if (op.cuentas.length > 1){
+      const nombreCta2 = op.cuentas[1];
+      zonaVentas2.classList.remove('step-hidden');
+      zoneLabel2.innerHTML = `<span class="num">2</span> Ventas de ${nombreCta2}`;
+      zonas.v2.defaultTitle = `Arrastrá el Excel de ${nombreCta2}`;
+      if (!zonas.v2.archivo){ zonas.v2.title.textContent = zonas.v2.defaultTitle; }
+    } else {
+      zonaVentas2.classList.add('step-hidden');
+      limpiarArchivo('v2');
+    }
+  }
+
   const processBtn = document.getElementById('process-btn');
   const errorBox = document.getElementById('error-box');
   const stepForm = document.getElementById('step-form');
@@ -894,8 +1523,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const statusConexion = document.getElementById('status-conexion');
   const statusTexto = document.getElementById('status-texto');
 
-  let archivoVentas = null;
-
   function mostrarError(msg){ errorBox.textContent = msg; errorBox.classList.add('show'); }
   function ocultarError(){ errorBox.classList.remove('show'); }
   function actualizarEstadoConexion(tipo, texto){
@@ -905,44 +1532,51 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   function actualizarBoton(){
-    const flexOk = costoFlexInput.value !== '' && !isNaN(parseFloat(costoFlexInput.value));
-    const personaOk = personaSelect.value !== '';
-    processBtn.disabled = !(archivoVentas && flexOk && personaOk);
+    const op = opcionActual();
+    const personaOk = !!op;
+    const necesitaV2 = op && op.cuentas.length > 1;
+    const archivosOk = zonas.v1.archivo && (!necesitaV2 || zonas.v2.archivo);
+    processBtn.disabled = !(archivosOk && personaOk);
   }
 
-  function setArchivo(file){
+  function setArchivo(zonaKey, file){
     if (!file) return;
+    const z = zonas[zonaKey];
     if (!/\.(xlsx|xls)$/i.test(file.name)){
       mostrarError('El archivo tiene que ser un Excel (.xlsx) — el que te descargás directo de Mercado Libre.');
       return;
     }
     ocultarError();
-    archivoVentas = file;
-    nameEl.textContent = file.name;
-    chip.classList.remove('step-hidden');
-    dzTitle.textContent = 'Archivo cargado';
-    dzSub.textContent = 'Hacé clic para elegir otro';
+    z.archivo = file;
+    z.name.textContent = file.name;
+    z.chip.classList.remove('step-hidden');
+    z.title.textContent = 'Archivo cargado';
+    z.sub.textContent = 'Hacé clic para elegir otro';
     actualizarBoton();
   }
 
-  function limpiarArchivo(){
-    archivoVentas = null;
-    input.value = '';
-    chip.classList.add('step-hidden');
-    dzTitle.textContent = 'Arrastrá tu Excel de Meli acá';
-    dzSub.textContent = 'o hacé clic para elegirlo · .xlsx';
+  function limpiarArchivo(zonaKey){
+    const z = zonas[zonaKey];
+    z.archivo = null;
+    z.input.value = '';
+    z.chip.classList.add('step-hidden');
+    z.title.textContent = z.defaultTitle;
+    z.sub.textContent = z.defaultSub;
     actualizarBoton();
   }
 
-  dzEl.addEventListener('click', () => input.click());
-  dzEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); input.click(); } });
-  ['dragenter','dragover'].forEach(evt => dzEl.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dzEl.classList.add('drag-over'); }));
-  ['dragleave','drop'].forEach(evt => dzEl.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dzEl.classList.remove('drag-over'); }));
-  dzEl.addEventListener('drop', (e) => setArchivo(e.dataTransfer.files && e.dataTransfer.files[0]));
-  input.addEventListener('change', (e) => setArchivo(e.target.files[0]));
-  btnQuitar.addEventListener('click', (e) => { e.stopPropagation(); limpiarArchivo(); });
-  costoFlexInput.addEventListener('input', () => { ocultarError(); actualizarBoton(); });
-  personaSelect.addEventListener('change', () => { ocultarError(); actualizarBoton(); });
+  Object.keys(zonas).forEach(key => {
+    const z = zonas[key];
+    z.dz.addEventListener('click', () => z.input.click());
+    z.dz.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); z.input.click(); } });
+    ['dragenter','dragover'].forEach(evt => z.dz.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); z.dz.classList.add('drag-over'); }));
+    ['dragleave','drop'].forEach(evt => z.dz.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); z.dz.classList.remove('drag-over'); }));
+    z.dz.addEventListener('drop', (e) => setArchivo(key, e.dataTransfer.files && e.dataTransfer.files[0]));
+    z.input.addEventListener('change', (e) => setArchivo(key, e.target.files[0]));
+    z.btnQuitar.addEventListener('click', (e) => { e.stopPropagation(); limpiarArchivo(key); });
+  });
+
+  personaSelect.addEventListener('change', () => { ocultarError(); actualizarZonasSegunPersona(); actualizarBoton(); });
 
   function leerComoArrayBuffer(file){
     return new Promise((resolve, reject) => {
@@ -959,9 +1593,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     processBtn.textContent = 'Procesando...';
     statusConexion.classList.add('step-hidden');
     try {
-      const costoFlex = Math.abs(parseFloat(costoFlexInput.value));
-      const ventasBuf = await leerComoArrayBuffer(archivoVentas);
-      const { filas, desglosePresentes } = leerVentas(ventasBuf, costoFlex);
+      const op = opcionActual();
+      if (!op) throw new Error('Elegí quién sos antes de generar el reporte.');
+      const multi = op.cuentas.length > 1;
+      const archivosPorCuenta = [zonas.v1.archivo, zonas.v2.archivo];
 
       actualizarEstadoConexion('loading', 'Conectando con la planilla de costos...');
       let costos;
@@ -973,31 +1608,110 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         throw new Error('No se pudo conectar con la planilla de costos (' + e.message + '). Revisá tu conexión a internet e intentá de nuevo.');
       }
 
-      const resultado = combinarVentasYCostos(filas, desglosePresentes, costos, personaSelect.value);
-      const buffer = await construirReporte(resultado);
+      // Leer y procesar cada cuenta por separado
+      const cuentas = [];
+      const todasFilasOriginales = [];
+      const todosDesglose = [];
+      const sinMapeoTotal = new Set();
+      const sinCostoTotal = new Set();
+
+      for (let i = 0; i < op.cuentas.length; i++){
+        const nombreCuenta = op.cuentas[i];
+        const archivo = archivosPorCuenta[i];
+        const buf = await leerComoArrayBuffer(archivo);
+        const leido = leerVentas(buf);
+        todasFilasOriginales.push(leido.filas);
+        todosDesglose.push(leido.desglosePresentes);
+
+        const combinado = combinarVentasYCostos(leido.filas, leido.desglosePresentes, costos, op.dueño);
+        combinado.sinMapeo.forEach(t => sinMapeoTotal.add(t));
+        combinado.sinCosto.forEach(t => sinCostoTotal.add(t));
+
+        cuentas.push({
+          nombre: nombreCuenta,
+          filas: combinado.filas,
+          desglosePresentes: leido.desglosePresentes,
+          resumen: combinado.resumen,
+          resumenTerceros: combinado.resumenTerceros,
+        });
+      }
+
+      // ---- Existencias (opcional): cruzar el reporte de MercadoPago contra las ventas cargadas, por SKU ----
+      // Sin este archivo, "Modo Solo Meli": rentabilidad tal cual la reporta Meli, sin descuento de flex.
+      let existencias = null;
+      let modo = 'Solo Meli';
+      if (zonas.settlement.archivo){
+        const mapaSku = {};
+        for (const c of cuentas){
+          for (const f of c.filas){
+            if (f.Producto && !esVacio(f.SKU)){
+              const key = normalizar(f.SKU);
+              if (!mapaSku[key]){
+                mapaSku[key] = { producto: f.Producto, dueño: costos.vendedores[normalizar(f.Producto)] || op.dueño, ventas: [] };
+              }
+              mapaSku[key].ventas.push({ idVenta: f['# de venta'], fechaMs: parsearFechaVenta(f['Fecha de venta']), estado: f['Estado'] });
+            }
+          }
+        }
+        const bufSettlement = await leerComoArrayBuffer(zonas.settlement.archivo);
+        const { movimientos, cashbacks } = leerMovimientosPago(bufSettlement);
+
+        let mapaEnvios = null;
+        if (zonas.envios.archivo){
+          const bufEnvios = await leerComoArrayBuffer(zonas.envios.archivo);
+          mapaEnvios = leerEnvios(bufEnvios);
+        }
+
+        const fechaCorte = fechaCorteInput.value ? new Date(fechaCorteInput.value + 'T23:59:59') : new Date();
+        const cruce = cruzarMovimientosPago(movimientos, cashbacks, mapaSku, mapaEnvios, fechaCorte, op.dueño);
+        existencias = { cruce, fechaCorte, dueño: op.dueño };
+        modo = mapaEnvios ? 'Meli + MercadoPago + Flex real' : 'Meli + MercadoPago';
+
+        // El flex real (si se cargó el listado de envíos) se aplica a las ventas de todas las
+        // cuentas, así la hoja Ventas/Resumen/Analítica también reflejan el costo real y no uno fijo.
+        if (Object.keys(cruce.flexPorVenta).length > 0){
+          for (const c of cuentas) aplicarFlexReal(c.filas, cruce.flexPorVenta);
+        }
+      }
+
+      let unificado = null;
+      if (multi){
+        const filasUnificadas = todasFilasOriginales.flat();
+        const desgloseUnificado = COLUMNAS_DESGLOSE_OPCIONALES.filter(c => todosDesglose.some(d => d.includes(c)));
+        const combinadoUnificado = combinarVentasYCostos(filasUnificadas, desgloseUnificado, costos, op.dueño);
+        combinadoUnificado.sinMapeo.forEach(t => sinMapeoTotal.add(t));
+        combinadoUnificado.sinCosto.forEach(t => sinCostoTotal.add(t));
+        unificado = { resumen: combinadoUnificado.resumen, resumenTerceros: combinadoUnificado.resumenTerceros };
+      }
+
+      const buffer = await construirReporte({ persona: op.label, cuentas, unificado, existencias });
 
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const nombreSalida = 'reporte_' + archivoVentas.name.replace(/\.(xlsx|xls)$/i, '') + '.xlsx';
+      const nombreSalida = 'reporte_' + op.value + '.xlsx';
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = nombreSalida;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      successCount.textContent = resultado.filas.length + ' ventas · ' + resultado.resumen.length + ' productos.';
+      const totalVentas = cuentas.reduce((s, c) => s + c.filas.length, 0);
+      const totalProductos = multi ? unificado.resumen.length : cuentas[0].resumen.length;
+      successCount.textContent = 'Modo: ' + modo + ' · ' + totalVentas + ' ventas · ' + totalProductos + ' productos'
+        + (existencias ? ' · Existencias incluida (' + existencias.cruce.identificados.length + ' movimientos)' : '') + '.';
       successFilename.textContent = nombreSalida;
 
-      if (resultado.sinMapeo.length){
-        listaSinMapeo.innerHTML = resultado.sinMapeo.map(t => `<li>${t}</li>`).join('');
+      const sinMapeo = [...sinMapeoTotal], sinCosto = [...sinCostoTotal];
+      if (sinMapeo.length){
+        listaSinMapeo.innerHTML = sinMapeo.map(t => `<li>${t}</li>`).join('');
         warnSinMapeo.classList.remove('step-hidden');
       } else warnSinMapeo.classList.add('step-hidden');
 
-      if (resultado.sinCosto.length){
-        listaSinCosto.innerHTML = resultado.sinCosto.map(t => `<li>${t}</li>`).join('');
+      if (sinCosto.length){
+        listaSinCosto.innerHTML = sinCosto.map(t => `<li>${t}</li>`).join('');
         warnSinCosto.classList.remove('step-hidden');
       } else warnSinCosto.classList.add('step-hidden');
 
-      warnBox.classList.toggle('show', resultado.sinMapeo.length > 0 || resultado.sinCosto.length > 0);
+      warnBox.classList.toggle('show', sinMapeo.length > 0 || sinCosto.length > 0);
 
       stepForm.style.display = 'none';
       stepSuccess.classList.add('show');
@@ -1009,9 +1723,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   });
 
   resetBtn.addEventListener('click', () => {
-    limpiarArchivo();
-    costoFlexInput.value = '';
+    limpiarArchivo('v1');
+    limpiarArchivo('v2');
+    limpiarArchivo('settlement');
+    limpiarArchivo('envios');
+    fechaCorteInput.value = '';
     personaSelect.value = '';
+    actualizarZonasSegunPersona();
     ocultarError();
     statusConexion.classList.add('step-hidden');
     processBtn.disabled = true;
