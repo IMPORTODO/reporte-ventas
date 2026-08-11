@@ -410,6 +410,55 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     { value: 'AGUS', label: 'AGUS', dueño: 'AGUS', cuentas: ['AGUS'] },
   ];
 
+  // Relación cuenta principal (C1) / secundaria (C2) por dueño — así sabemos, según qué
+  // cuenta(s) eligió el usuario, qué columnas de "Gastos grupales" corresponde sumar.
+  const CUENTAS_C1_C2 = {
+    SERGIO: { c1: 'SERGIO', c2: 'FERLAN' },
+    ANA: { c1: 'ANA', c2: 'EULOGIA' },
+    SURAK: { c1: 'SURAK', c2: 'ADRICRIVE' },
+    AGUS: { c1: 'AGUS', c2: null },
+  };
+
+  const MESES_LISTA_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
+    'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+  // Meses (nombre en español) cubiertos por las ventas cargadas — para buscar la fila
+  // correspondiente en Gastos grupales.
+  function mesesDeVentas(cuentas){
+    const set = new Set();
+    for (const c of cuentas){
+      for (const f of c.filas){
+        const ms = parsearFechaVenta(f['Fecha de venta']);
+        if (ms == null) continue;
+        set.add(MESES_LISTA_ES[new Date(ms).getMonth()]);
+      }
+    }
+    return [...set];
+  }
+
+  // Suma los gastos grupales que correspondan según qué cuenta(s) eligió el usuario
+  // (cuenta principal, secundaria, o ambas) y el/los mes/es cubiertos por las ventas.
+  function calcularGastosGrupales(gastosGrupales, dueño, cuentasSeleccionadas, meses){
+    if (!gastosGrupales) return null;
+    const par = CUENTAS_C1_C2[dueño];
+    if (!par) return null;
+    const incluirC1 = cuentasSeleccionadas.includes(par.c1);
+    const incluirC2 = par.c2 && cuentasSeleccionadas.includes(par.c2);
+    const filaMiembro = gastosGrupales[normalizar(dueño)];
+    if (!filaMiembro) return null;
+
+    let total = 0;
+    let encontrado = false;
+    for (const mes of meses){
+      const datosMes = filaMiembro[normalizar(mes)];
+      if (!datosMes) continue;
+      encontrado = true;
+      if (incluirC1) total += datosMes.c1;
+      if (incluirC2) total += datosMes.c2;
+    }
+    return encontrado ? total : null;
+  }
+
   // ID de la spreadsheet PÚBLICA (solo MAPING + TITULARES, sin datos sensibles)
   // que replica en vivo la privada mediante IMPORTRANGE.
   // Si se recrea esa spreadsheet en el futuro, alcanza con actualizar este ID.
@@ -549,6 +598,38 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return [headers, ...filas];
   }
 
+  // Detecta columnas "cuenta principal" (C1) y "cuenta secundaria" (C2) por el final del
+  // título — así no hace falta tocar el código si mañana agregan una categoría de gasto nueva.
+  function gastosGrupalesDesdeFilas(filas){
+    if (!filas || filas.length === 0) return null;
+    const encabezado = filas[0].map(c => String(c).trim());
+    const idxMiembro = encabezado.findIndex(h => normalizar(h) === 'miembro');
+    const idxMes = encabezado.findIndex(h => normalizar(h) === 'mes');
+    if (idxMiembro === -1 || idxMes === -1) return null;
+
+    const colsC1 = [], colsC2 = [];
+    encabezado.forEach((h, i) => {
+      const n = normalizar(h);
+      if (/\bc1$/.test(n)) colsC1.push(i);
+      else if (/\bc2$/.test(n)) colsC2.push(i);
+    });
+    if (colsC1.length === 0 && colsC2.length === 0) return null;
+
+    const gastos = {};
+    for (let i = 1; i < filas.length; i++){
+      const fila = filas[i];
+      const miembro = fila[idxMiembro];
+      const mes = fila[idxMes];
+      if (esVacio(miembro) || esVacio(mes)) continue;
+      const c1 = colsC1.reduce((s, ci) => s + (parseFloat(fila[ci]) || 0), 0);
+      const c2 = colsC2.reduce((s, ci) => s + (parseFloat(fila[ci]) || 0), 0);
+      const km = normalizar(miembro), kmes = normalizar(mes);
+      if (!gastos[km]) gastos[km] = {};
+      gastos[km][kmes] = { c1, c2 };
+    }
+    return gastos;
+  }
+
   async function leerCostosDesdeGoogle(sheetId){
     let mapping = null;
     let ultimoError = null;
@@ -565,7 +646,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const tableTit = await fetchHojaJSON(sheetId, 'TITULARES');
     const { titulares, vendedores } = titularesDesdeFilas(tablaAAOA(tableTit));
 
-    return { mapping, titulares, vendedores };
+    // Gastos mensuales grupales: opcional — si la hoja todavía no existe en el Google Sheet,
+    // el reporte sigue funcionando igual que siempre, solo sin la línea de "Ganancia real final".
+    let gastosGrupales = null;
+    try {
+      const tableGastos = await fetchHojaJSON(sheetId, 'GASTOS GRUPALES');
+      gastosGrupales = gastosGrupalesDesdeFilas(tablaAAOA(tableGastos));
+    } catch (e) { /* sin esta hoja, se sigue sin el dato */ }
+
+    return { mapping, titulares, vendedores, gastosGrupales };
   }
 
   const PALABRAS_EXCLUSION = ['cancelad', 'devoluc', 'devuelto'];
@@ -1324,7 +1413,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   }
 
-  function construirAnalitica(wb, fuentes, terceros, bloquePrincipal, persona){
+  function construirAnalitica(wb, fuentes, terceros, bloquePrincipal, persona, gastoGrupalInfo){
     const ws = wb.addWorksheet('Análisis general');
     ws.getColumn(1).width = 46;
     ws.getColumn(2).width = 20;
@@ -1433,6 +1522,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     cellFinal.alignment = { vertical: 'middle', horizontal: 'center' };
     ws.getRow(filaFinal).height = 28;
     fila += 2;
+
+    // ---- Gastos del negocio del mes, y Ganancia real final (opcional — solo si hay datos) ----
+    if (gastoGrupalInfo && gastoGrupalInfo.monto != null){
+      seccionHeader(fila, 'GASTOS DEL NEGOCIO', 'FF3D6B54', 'FFFFFFFF');
+      fila += 1;
+      const filaGasto = filaPrincipal(`Gastos grupales (${gastoGrupalInfo.mesesTexto})`, -gastoGrupalInfo.monto, FMT_MONEY);
+      fila += 1;
+
+      const filaFinalReal = fila;
+      ws.mergeCells(filaFinalReal, 1, filaFinalReal, 2);
+      const cellFinalReal = ws.getCell(filaFinalReal, 1);
+      cellFinalReal.value = { formula: `"GANANCIA REAL FINAL:  " & TEXT(B${filaGananciaTotal}+B${filaImpactoDevol}+B${filaGasto},"$#,##0")` };
+      cellFinalReal.font = { name: FONT, size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+      cellFinalReal.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C432D' } };
+      cellFinalReal.alignment = { vertical: 'middle', horizontal: 'center' };
+      ws.getRow(filaFinalReal).height = 30;
+      fila += 2;
+    }
 
     // ---- Sección terceros ----
     seccionHeader(fila, 'NO ES TUYO — plata de otros vendedores', 'FFE8C97A', 'FF4A3A10');
@@ -1666,10 +1773,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   // input = { persona, cuentas: [{ nombre, filas, desglosePresentes, resumen, resumenTerceros }, ...],
-  //           unificado: { resumen, resumenTerceros } | null (null si es 1 sola cuenta) }
+  //           unificado: { resumen, resumenTerceros } | null (null si es 1 sola cuenta),
+  //           gastoGrupalInfo: { monto, mesesTexto } | null }
   async function construirReporte(input){
     const wb = new ExcelJS.Workbook();
-    const { persona, cuentas, unificado } = input;
+    const { persona, cuentas, unificado, gastoGrupalInfo } = input;
     const multi = cuentas.length > 1;
 
     const fuentes = cuentas.map(c => {
@@ -1700,7 +1808,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const resumenTercerosFinal = multi ? unificado.resumenTerceros : cuentas[0].resumenTerceros;
     const terceros = construirTerceros(wb, resumenTercerosFinal, fuentes, persona);
 
-    construirAnalitica(wb, fuentes, terceros, bloquePrincipal, persona);
+    construirAnalitica(wb, fuentes, terceros, bloquePrincipal, persona, gastoGrupalInfo);
 
     if (input.existencias){
       construirExistencias(wb, input.existencias.cruce, input.existencias.fechaCorte, persona, input.existencias.dueño);
@@ -2027,7 +2135,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         unificado = { resumen: combinadoUnificado.resumen, resumenTerceros: combinadoUnificado.resumenTerceros };
       }
 
-      const buffer = await construirReporte({ persona: op.label, cuentas, unificado, existencias });
+      // Gastos grupales del mes (opcional): según qué cuenta(s) eligió y qué mes cubren las ventas
+      let gastoGrupalInfo = null;
+      const meses = mesesDeVentas(cuentas);
+      const montoGasto = calcularGastosGrupales(costos.gastosGrupales, op.dueño, op.cuentas, meses);
+      if (montoGasto != null){
+        gastoGrupalInfo = { monto: montoGasto, mesesTexto: meses.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(' + ') };
+      }
+
+      const buffer = await construirReporte({ persona: op.label, cuentas, unificado, existencias, gastoGrupalInfo });
 
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const rango = calcularRangoFechas(cuentas);
