@@ -812,13 +812,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       // Se busca primero por el order_id del propio archivo de MercadoPago, y si no, por el
       // # de venta ya confirmado por fecha/hora. Si el envío está pero figura en $0, se toma
       // como un error de carga de la logística y se usa el promedio real del mes en su lugar.
-      // Si esta venta ya tuvo su flex descontado en otro movimiento (ej: la misma venta pagada
-      // en dos cuotas, generando dos movimientos), no se vuelve a descontar.
+      // Si este envío ya se descontó en otro movimiento (ej: la misma venta pagada en dos
+      // cuotas, generando dos movimientos), no se vuelve a descontar — se controla por la
+      // clave del envío (order_id o # de venta), no solo por venta confirmada, para cubrir
+      // también los casos en que no se pudo confirmar con certeza a qué venta corresponde.
       let flexDescontado = 0;
       if (mapaEnvios){
         const claveEnvio = (m.orderId && mapaEnvios[m.orderId] !== undefined) ? m.orderId
           : (idVenta && mapaEnvios[idVenta] !== undefined) ? idVenta : null;
-        const yaDescontado = idVenta && ventasFlexYaDescontado.has(idVenta);
+        const yaDescontado = claveEnvio && ventasFlexYaDescontado.has(claveEnvio);
         if (claveEnvio && !yaDescontado){
           flexDescontado = mapaEnvios[claveEnvio];
           if (flexDescontado === 0 && promedioFlexReal > 0){
@@ -827,7 +829,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           }
           flexDescontadoTotal += flexDescontado;
           flexDescontadoCount += 1;
-          if (idVenta){ flexPorVenta[idVenta] = flexDescontado; ventasFlexYaDescontado.add(idVenta); }
+          ventasFlexYaDescontado.add(claveEnvio);
+          if (idVenta) flexPorVenta[idVenta] = flexDescontado;
         }
       }
 
