@@ -447,16 +447,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const filaMiembro = gastosGrupales[normalizar(dueño)];
     if (!filaMiembro) return null;
 
-    let total = 0;
+    const CATEGORIAS = ['insumos', 'externos', 'roturas', 'impositivos'];
+    const resultado = { insumos: 0, externos: 0, roturas: 0, impositivos: 0 };
     let encontrado = false;
     for (const mes of meses){
       const datosMes = filaMiembro[normalizar(mes)];
       if (!datosMes) continue;
       encontrado = true;
-      if (incluirC1) total += datosMes.c1;
-      if (incluirC2) total += datosMes.c2;
+      CATEGORIAS.forEach(cat => {
+        if (incluirC1) resultado[cat] += datosMes[cat].c1;
+        if (incluirC2) resultado[cat] += datosMes[cat].c2;
+      });
     }
-    return encontrado ? total : null;
+    if (!encontrado) return null;
+    resultado.total = CATEGORIAS.reduce((s, cat) => s + resultado[cat], 0);
+    return resultado;
   }
 
   // ID de la spreadsheet PÚBLICA (solo MAPING + TITULARES, sin datos sensibles)
@@ -598,8 +603,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return [headers, ...filas];
   }
 
+  // Clasifica el nombre "base" de una columna de gasto (sin el "C1"/"C2" final) en una
+  // de las 4 categorías que se muestran en el reporte. Por nombre/contenido, no por
+  // posición — así no importa el orden exacto de columnas en la hoja.
+  function categorizarGasto(nombreBase){
+    const n = normalizar(nombreBase);
+    if (n.includes('insumo')) return 'insumos';
+    if (n.includes('externo')) return 'externos';
+    if (n.includes('rotura')) return 'roturas';
+    return 'impositivos'; // contador, mono(tributo), ingresos brutos, y cualquier otra cosa
+  }
+
   // Detecta columnas "cuenta principal" (C1) y "cuenta secundaria" (C2) por el final del
-  // título — así no hace falta tocar el código si mañana agregan una categoría de gasto nueva.
+  // título, y las categoriza — así no hace falta tocar el código si mañana agregan una
+  // categoría de gasto nueva.
   function gastosGrupalesDesdeFilas(filas){
     if (!filas || filas.length === 0) return null;
     const encabezado = filas[0].map(c => String(c).trim());
@@ -607,13 +624,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const idxMes = encabezado.findIndex(h => normalizar(h) === 'mes');
     if (idxMiembro === -1 || idxMes === -1) return null;
 
-    const colsC1 = [], colsC2 = [];
+    const columnas = []; // { idx, categoria, cuenta: 'c1' | 'c2' }
     encabezado.forEach((h, i) => {
       const n = normalizar(h);
-      if (/\bc1$/.test(n)) colsC1.push(i);
-      else if (/\bc2$/.test(n)) colsC2.push(i);
+      const m = n.match(/^(.*)\s+c([12])$/);
+      if (m) columnas.push({ idx: i, categoria: categorizarGasto(m[1]), cuenta: 'c' + m[2] });
     });
-    if (colsC1.length === 0 && colsC2.length === 0) return null;
+    if (columnas.length === 0) return null;
 
     const gastos = {};
     for (let i = 1; i < filas.length; i++){
@@ -621,11 +638,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const miembro = fila[idxMiembro];
       const mes = fila[idxMes];
       if (esVacio(miembro) || esVacio(mes)) continue;
-      const c1 = colsC1.reduce((s, ci) => s + (parseFloat(fila[ci]) || 0), 0);
-      const c2 = colsC2.reduce((s, ci) => s + (parseFloat(fila[ci]) || 0), 0);
+      const totales = { insumos: { c1: 0, c2: 0 }, externos: { c1: 0, c2: 0 }, roturas: { c1: 0, c2: 0 }, impositivos: { c1: 0, c2: 0 } };
+      columnas.forEach(({ idx, categoria, cuenta }) => {
+        totales[categoria][cuenta] += (parseFloat(fila[idx]) || 0);
+      });
       const km = normalizar(miembro), kmes = normalizar(mes);
       if (!gastos[km]) gastos[km] = {};
-      gastos[km][kmes] = { c1, c2 };
+      gastos[km][kmes] = totales;
     }
     return gastos;
   }
@@ -1512,36 +1531,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const filaImpactoDevol = filaPrincipal('Impacto devoluciones/cancelaciones', { formula: impactoDevolF }, FMT_MONEY);
     fila += 1;
 
-    // ---- Ganancia neta final: card destacada ----
-    const filaFinal = fila;
-    ws.mergeCells(filaFinal, 1, filaFinal, 2);
-    const cellFinal = ws.getCell(filaFinal, 1);
-    cellFinal.value = { formula: `"GANANCIA NETA FINAL:  " & TEXT(B${filaGananciaTotal}+B${filaImpactoDevol},"$#,##0")` };
-    cellFinal.font = { name: FONT, size: 13, bold: true, color: { argb: 'FF0F5132' } };
-    cellFinal.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1E7DD' } };
-    cellFinal.alignment = { vertical: 'middle', horizontal: 'center' };
-    ws.getRow(filaFinal).height = 28;
-    fila += 2;
+    // "GANANCIA TOTAL": referencia de cuánto mueve la cuenta en total (tu ganancia + lo que
+    // hay que transferirle a terceros) — fila normal, no es la ganancia final tuya.
+    const nombresTercerosGT = Object.keys(terceros.subtotales);
+    const terceroTotalF = nombresTercerosGT.length
+      ? nombresTercerosGT.map(n => `'Terceros'!${terceros.subtotales[n].col}${terceros.subtotales[n].fila}`).join('+')
+      : '0';
+    filaPrincipal('GANANCIA TOTAL (incluye plata de terceros)',
+      { formula: `B${filaGananciaTotal}+B${filaImpactoDevol}+(${terceroTotalF})` }, FMT_MONEY);
+    fila += 1;
 
-    // ---- Gastos del negocio del mes, y Ganancia real final (opcional — solo si hay datos) ----
-    if (gastoGrupalInfo && gastoGrupalInfo.monto != null){
-      seccionHeader(fila, 'GASTOS DEL NEGOCIO', 'FF3D6B54', 'FFFFFFFF');
-      fila += 1;
-      const filaGasto = filaPrincipal(`Gastos grupales (${gastoGrupalInfo.mesesTexto})`, -gastoGrupalInfo.monto, FMT_MONEY);
-      fila += 1;
-
-      const filaFinalReal = fila;
-      ws.mergeCells(filaFinalReal, 1, filaFinalReal, 2);
-      const cellFinalReal = ws.getCell(filaFinalReal, 1);
-      cellFinalReal.value = { formula: `"GANANCIA REAL FINAL:  " & TEXT(B${filaGananciaTotal}+B${filaImpactoDevol}+B${filaGasto},"$#,##0")` };
-      cellFinalReal.font = { name: FONT, size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
-      cellFinalReal.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C432D' } };
-      cellFinalReal.alignment = { vertical: 'middle', horizontal: 'center' };
-      ws.getRow(filaFinalReal).height = 30;
-      fila += 2;
-    }
-
-    // ---- Sección terceros ----
+    // ---- Sección terceros: se resta acá, antes de llegar a la ganancia final ----
     seccionHeader(fila, 'NO ES TUYO — plata de otros vendedores', 'FFE8C97A', 'FF4A3A10');
     fila += 1;
 
@@ -1550,6 +1550,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const cell = ws.getCell(fila, 1);
       cell.value = 'No hay productos de terceros en este período.';
       cell.font = { name: FONT, size: 10, italic: true, color: { argb: 'FF746B5C' } };
+      fila += 1;
     } else {
       const filaHeaderTabla = fila;
       ['Persona', 'A transferir'].forEach((h, i) => {
@@ -1577,16 +1578,59 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         fila += 1;
       });
     }
+    // Total que se resta — deja bien claro que de acá en más ya volvimos a "lo tuyo"
+    filaPrincipal('TOTAL NO ES TUYO', { formula: `-(${terceroTotalF})` }, FMT_MONEY);
+    fila += 1;
 
-    ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+    // ---- Gastos mensuales del negocio, detallados por categoría (opcional — solo si hay datos) ----
+    let gastosTotalF = '0';
+    if (gastoGrupalInfo && gastoGrupalInfo.total != null){
+      seccionHeader(fila, 'GASTOS MENSUALES', 'FF3D6B54', 'FFFFFFFF');
+      fila += 1;
+      filaPrincipal('Insumos', -gastoGrupalInfo.insumos, FMT_MONEY);
+      filaPrincipal('GASTOS EXTERNOS MELI', -gastoGrupalInfo.externos, FMT_MONEY);
+      filaPrincipal('Roturas en pedidos', -gastoGrupalInfo.roturas, FMT_MONEY);
+      filaPrincipal('Gastos impositivos', -gastoGrupalInfo.impositivos, FMT_MONEY);
+      filaPrincipal('TOTAL GASTOS MENSUALES', -gastoGrupalInfo.total, FMT_MONEY);
+      fila += 1;
+      gastosTotalF = String(-gastoGrupalInfo.total);
+    }
+
+    // ---- Ganancia neta final: card destacada, al final de todo el flujo ----
+    const filaFinal = fila;
+    ws.mergeCells(filaFinal, 1, filaFinal, 2);
+    const cellFinal = ws.getCell(filaFinal, 1);
+    cellFinal.value = { formula: `"GANANCIA NETA FINAL:  " & TEXT(B${filaGananciaTotal}+B${filaImpactoDevol}+(${gastosTotalF}),"$#,##0")` };
+    cellFinal.font = { name: FONT, size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+    cellFinal.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F5132' } };
+    cellFinal.alignment = { vertical: 'middle', horizontal: 'center' };
+    ws.getRow(filaFinal).height = 30;
+
+    ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 2, fitToHeight: 0 };
+    return ws;
   }
 
-  function construirDevoluciones(wb, cuentas, nombreHoja){
+  function construirDevoluciones(wb, cuentas, ventasFlexPromedio, nombreHoja){
     const ws = wb.addWorksheet(nombreHoja || 'Devoluciones y cancelaciones');
     const multi = cuentas.length > 1;
+
+    const titulo = ws.getCell(1, 1);
+    titulo.value = 'Devoluciones / Cancelaciones y Flex sin encontrar';
+    titulo.font = { name: FONT, size: 13, bold: true, color: { argb: COLOR_MARCA } };
+    ws.getRow(1).height = 24;
+
     const headersBase = ['# de venta', 'Fecha de venta', 'Estado', 'Motivo', 'Producto', 'Título de la publicación', 'Total (ARS)'];
     const headers = multi ? ['Cuenta', ...headersBase] : headersBase;
-    headerRow(ws, headers);
+    const filaHeaderDevol = 3;
+    headers.forEach((h, i) => {
+      const cell = ws.getCell(filaHeaderDevol, i + 1);
+      cell.value = h;
+      cell.font = HEADER_FONT;
+      cell.fill = HEADER_FILL;
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = BORDER;
+    });
+    ws.getRow(filaHeaderDevol).height = 24;
 
     const afectadas = [];
     cuentas.forEach(c => {
@@ -1594,7 +1638,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
 
     afectadas.forEach(({ cuenta, fila: f }, i) => {
-      const r = i + 2;
+      const r = i + filaHeaderDevol + 1;
       const valoresBase = [
         f["# de venta"], f["Fecha de venta"], f["Estado"], f["Motivo"] || '',
         f["Producto"] || '', f["Título de la publicación"], f["Total (ARS)"],
@@ -1612,145 +1656,33 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
 
     if (afectadas.length === 0){
-      const cell = ws.getCell(2, 1);
+      const cell = ws.getCell(filaHeaderDevol + 1, 1);
       cell.value = 'No hubo devoluciones ni cancelaciones en este período. 🎉';
       cell.font = { name: FONT, size: 10, italic: true, color: { argb: 'FF746B5C' } };
     }
 
-    const anchos = { 'Cuenta': 16, '# de venta': 18, 'Fecha de venta': 22, 'Estado': 30, 'Motivo': 50,
-      'Producto': 40, 'Título de la publicación': 46, 'Total (ARS)': 14 };
-    headers.forEach((h, i) => { ws.getColumn(i + 1).width = anchos[h] || 16; });
-
-    ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
-  }
-
-  function construirExistencias(wb, cruce, fechaCorte, personaLabel, dueñoReal){
-    const ws = wb.addWorksheet('Existencias');
-
-    const fechaTexto = `${String(fechaCorte.getDate()).padStart(2, '0')}/${String(fechaCorte.getMonth() + 1).padStart(2, '0')}/${fechaCorte.getFullYear()}`;
-
-    const titulo = ws.getCell(1, 1);
-    titulo.value = `Existencias de ${personaLabel} — foto al ${fechaTexto}`;
-    titulo.font = { name: FONT, size: 14, bold: true, color: { argb: COLOR_MARCA } };
-    ws.getRow(1).height = 28;
-
-    function agruparPorDueño(lista){
-      const out = {};
-      for (const m of lista){ out[m.dueño] = (out[m.dueño] || 0) + m.monto; }
-      return out;
-    }
-    const cobrados = cruce.identificados.filter(m => m.cobrado);
-    const aCobrar = cruce.identificados.filter(m => !m.cobrado);
-    const cobradoPorDueño = agruparPorDueño(cobrados);
-    const aCobrarPorDueño = agruparPorDueño(aCobrar);
-
-    // Tarjeta grande por sección: encabezado de color, total destacado arriba, desglose abajo
-    function tarjeta(filaInicio, tituloSeccion, porDueño, fillColor, fontColor, totalColor, totalFill){
-      ws.mergeCells(filaInicio, 1, filaInicio, 2);
-      const tCell = ws.getCell(filaInicio, 1);
-      tCell.value = tituloSeccion;
-      tCell.font = { name: FONT, size: 11, bold: true, color: { argb: fontColor } };
-      tCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } };
-      tCell.alignment = { vertical: 'middle', indent: 1 };
-      ws.getRow(filaInicio).height = 22;
-
-      const total = Object.values(porDueño).reduce((s, v) => s + v, 0);
-      const filaTotal = filaInicio + 1;
-      ws.mergeCells(filaTotal, 1, filaTotal, 2);
-      const cellTotal = ws.getCell(filaTotal, 1);
-      cellTotal.value = total;
-      cellTotal.font = { name: FONT, size: 20, bold: true, color: { argb: totalColor } };
-      cellTotal.numFmt = FMT_MONEY;
-      cellTotal.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: totalFill } };
-      cellTotal.alignment = { vertical: 'middle', horizontal: 'center' };
-      ws.getRow(filaTotal).height = 34;
-
-      let fila = filaTotal + 1;
-      const propio = porDueño[dueñoReal] || 0;
-      const cLabel = ws.getCell(fila, 1);
-      cLabel.value = `De tus productos (${personaLabel})`;
-      cLabel.font = { name: FONT, size: 10.5, bold: true, color: { argb: 'FF0F5132' } };
-      const cVal = ws.getCell(fila, 2);
-      cVal.value = propio;
-      cVal.font = { name: FONT, size: 11, bold: true, color: { argb: 'FF0F5132' } };
-      cVal.numFmt = FMT_MONEY;
-      cVal.alignment = { horizontal: 'center' };
-      fila += 1;
-
-      Object.keys(porDueño).filter(d => d !== dueñoReal).sort().forEach(nombre => {
-        const monto = porDueño[nombre];
-        const l = ws.getCell(fila, 1);
-        l.value = `De ${nombre} (terceros)`;
-        l.font = { name: FONT, size: 10.5 };
-        l.alignment = { indent: 1 };
-        const v = ws.getCell(fila, 2);
-        v.value = monto;
-        v.font = { name: FONT, size: 10.5, color: { argb: COLOR_MARCA } };
-        v.numFmt = FMT_MONEY;
-        v.alignment = { horizontal: 'center' };
-        fila += 1;
-      });
-
-      return fila + 1;
-    }
-
-    let filaSig = tarjeta(3, `DINERO COBRADO — liberado hasta el ${fechaTexto}`, cobradoPorDueño,
-      COLOR_MARCA, 'FFFFFFFF', 'FF0F5132', 'FFD1E7DD');
-    filaSig = tarjeta(filaSig + 1, `DINERO A COBRAR — pendiente después del ${fechaTexto}`, aCobrarPorDueño,
-      'FFE8C97A', 'FF4A3A10', COLOR_MARCA, 'FFF3E6C9');
-    filaSig += 1;
-
-    if (cruce.flexDescontadoCount > 0){
+    // ---- Ventas sin costo de flex cargado en la logística (se usó el promedio del mes) ----
+    let filaSig = filaHeaderDevol + Math.max(afectadas.length, 1) + 3;
+    if (ventasFlexPromedio && ventasFlexPromedio.length > 0){
       const tituloFlex = ws.getCell(filaSig, 1);
-      tituloFlex.value = 'Flex real descontado de estas ventas';
-      tituloFlex.font = { name: FONT, size: 11, bold: true };
+      tituloFlex.value = 'Ventas sin costo de flex cargado en la logística (se usó el promedio del mes)';
+      tituloFlex.font = { name: FONT, size: 12, bold: true, color: { argb: COLOR_MARCA } };
       filaSig += 1;
 
-      const filasFlex = [
-        ['Total descontado', -cruce.flexDescontadoTotal, FMT_MONEY],
-        ['Ventas con envío identificado', cruce.flexDescontadoCount, FMT_INT],
-      ];
-      if (cruce.flexPromedioUsadoCount > 0){
-        filasFlex.push([`· de esas, sin costo cargado en la logística (se usó el promedio del mes)`, cruce.flexPromedioUsadoCount, FMT_INT]);
-      }
-      filasFlex.forEach(([etiqueta, valor, formato]) => {
-        const l = ws.getCell(filaSig, 1);
-        l.value = etiqueta;
-        l.font = etiqueta.startsWith('·') ? { name: FONT, size: 9.5, italic: true, color: { argb: 'FF746B5C' } } : { name: FONT, size: 10 };
-        if (etiqueta.startsWith('·')) l.alignment = { indent: 1 };
-        const v = ws.getCell(filaSig, 2);
-        v.value = valor;
-        v.font = etiqueta.startsWith('·') ? { name: FONT, size: 9.5, italic: true, color: { argb: 'FF746B5C' } } : { name: FONT, size: 10, bold: true };
-        v.numFmt = formato;
-        v.alignment = { horizontal: 'center' };
-        filaSig += 1;
-      });
-      filaSig += 1;
-    }
-
-    // ---- Detalle: solo las ventas donde no había costo de flex cargado en la logística
-    // y se completó con el promedio del mes (para que las revises si querés) ----
-    const usaronPromedio = cruce.identificados.filter(m => m.flexDescontado > 0 && cruce.promedioFlexReal && m.flexDescontado === cruce.promedioFlexReal);
-    if (usaronPromedio.length > 0){
-      const tituloDetalle = ws.getCell(filaSig, 1);
-      tituloDetalle.value = `Ventas completadas con el promedio de flex (sin costo cargado en la logística)`;
-      tituloDetalle.font = { name: FONT, size: 11, bold: true };
-      filaSig += 1;
-
-      const filaHeaderDetalle = filaSig;
-      const headers = ['SKU', 'Producto', 'Fecha de liberación', 'Costo aplicado (promedio)'];
-      headers.forEach((h, i) => {
-        const cell = ws.getCell(filaHeaderDetalle, i + 1);
+      const headersFlex = ['SKU', 'Producto', 'Fecha de liberación', 'Costo aplicado (promedio)'];
+      const filaHeaderFlex = filaSig;
+      headersFlex.forEach((h, i) => {
+        const cell = ws.getCell(filaHeaderFlex, i + 1);
         cell.value = h;
         cell.font = HEADER_FONT;
         cell.fill = HEADER_FILL;
         cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         cell.border = BORDER;
       });
-      ws.getRow(filaHeaderDetalle).height = 24;
+      ws.getRow(filaHeaderFlex).height = 24;
 
-      usaronPromedio.forEach((m, i) => {
-        const r = filaHeaderDetalle + 1 + i;
+      ventasFlexPromedio.forEach((m, i) => {
+        const r = filaHeaderFlex + 1 + i;
         const valores = [m.sku, m.producto, m.fechaLiberacion, m.flexDescontado];
         valores.forEach((v, ci) => {
           const cell = ws.getCell(r, ci + 1);
@@ -1764,12 +1696,151 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       });
     }
 
-    ws.getColumn(1).width = 44;
-    ws.getColumn(2).width = 32;
-    ws.getColumn(3).width = 18;
-    ws.getColumn(4).width = 20;
+    const anchos = { 'Cuenta': 16, '# de venta': 18, 'Fecha de venta': 22, 'Estado': 30, 'Motivo': 50,
+      'Producto': 40, 'Título de la publicación': 46, 'Total (ARS)': 14 };
+    headers.forEach((h, i) => { ws.getColumn(i + 1).width = anchos[h] || 16; });
 
     ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+  }
+
+  function formatearMonedaEntero(n){
+    return '$' + Math.round(n).toLocaleString('en-US');
+  }
+
+  // Escribe el bloque de Existencias DENTRO de una hoja ya existente (Análisis general),
+  // arrancando en la columna colBase. Devuelve las ventas que se completaron con el
+  // promedio de flex (para que la hoja de Devoluciones las liste en su detalle).
+  function escribirBloqueExistencias(ws, colBase, cruce, fechaCorte, personaLabel, dueñoReal){
+    const fechaTexto = `${String(fechaCorte.getDate()).padStart(2, '0')}/${String(fechaCorte.getMonth() + 1).padStart(2, '0')}/${fechaCorte.getFullYear()}`;
+
+    const tituloGeneral = ws.getCell(1, colBase);
+    tituloGeneral.value = `Existencias — foto al ${fechaTexto}`;
+    tituloGeneral.font = { name: FONT, size: 14, bold: true, color: { argb: COLOR_MARCA } };
+
+    function agruparPorDueño(lista){
+      const out = {};
+      for (const m of lista){ out[m.dueño] = (out[m.dueño] || 0) + m.monto; }
+      return out;
+    }
+    const cobrados = cruce.identificados.filter(m => m.cobrado);
+    const aCobrar = cruce.identificados.filter(m => !m.cobrado);
+    const cobradoPorDueño = agruparPorDueño(cobrados);
+    const aCobrarPorDueño = agruparPorDueño(aCobrar);
+    const flexCobrado = cobrados.reduce((s, m) => s + (m.flexDescontado || 0), 0);
+    const flexACobrar = aCobrar.reduce((s, m) => s + (m.flexDescontado || 0), 0);
+
+    const colLabel = colBase, colVal = colBase + 1;
+    ws.getColumn(colLabel).width = 40;
+    ws.getColumn(colVal).width = 24;
+
+    // Fila 3: encabezado — Fila 4: de tus productos — Fila 5+: de terceros —
+    // penúltima: saldo de flex — última: TOTAL grande
+    function tarjeta(filaInicio, tituloSeccion, porDueño, flexSeccion, etiquetaTotal, fillColor, fontColor, totalColor, totalFill){
+      ws.mergeCells(filaInicio, colLabel, filaInicio, colVal);
+      const tCell = ws.getCell(filaInicio, colLabel);
+      tCell.value = tituloSeccion;
+      tCell.font = { name: FONT, size: 11, bold: true, color: { argb: fontColor } };
+      tCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } };
+      tCell.alignment = { vertical: 'middle', indent: 1 };
+      ws.getRow(filaInicio).height = 22;
+
+      let fila = filaInicio + 1;
+      const propio = porDueño[dueñoReal] || 0;
+      const cLabel = ws.getCell(fila, colLabel);
+      cLabel.value = `De tus productos (${personaLabel})`;
+      cLabel.font = { name: FONT, size: 10.5, bold: true, color: { argb: 'FF0F5132' } };
+      const cVal = ws.getCell(fila, colVal);
+      cVal.value = propio;
+      cVal.font = { name: FONT, size: 11, bold: true, color: { argb: 'FF0F5132' } };
+      cVal.numFmt = FMT_MONEY;
+      cVal.alignment = { horizontal: 'center' };
+      fila += 1;
+
+      const otros = Object.keys(porDueño).filter(d => d !== dueñoReal).sort();
+      if (otros.length === 0){
+        const l = ws.getCell(fila, colLabel);
+        l.value = 'De terceros';
+        l.font = { name: FONT, size: 10.5 };
+        l.alignment = { indent: 1 };
+        const v = ws.getCell(fila, colVal);
+        v.value = 0;
+        v.font = { name: FONT, size: 10.5, color: { argb: COLOR_MARCA } };
+        v.numFmt = FMT_MONEY;
+        v.alignment = { horizontal: 'center' };
+        fila += 1;
+      } else {
+        otros.forEach(nombre => {
+          const monto = porDueño[nombre];
+          const l = ws.getCell(fila, colLabel);
+          l.value = `De ${nombre} (terceros)`;
+          l.font = { name: FONT, size: 10.5 };
+          l.alignment = { indent: 1 };
+          const v = ws.getCell(fila, colVal);
+          v.value = monto;
+          v.font = { name: FONT, size: 10.5, color: { argb: COLOR_MARCA } };
+          v.numFmt = FMT_MONEY;
+          v.alignment = { horizontal: 'center' };
+          fila += 1;
+        });
+      }
+
+      const lFlex = ws.getCell(fila, colLabel);
+      lFlex.value = 'Saldo descontado de flex';
+      lFlex.font = { name: FONT, size: 10, italic: true, color: { argb: 'FF746B5C' } };
+      const vFlex = ws.getCell(fila, colVal);
+      vFlex.value = -flexSeccion;
+      vFlex.font = { name: FONT, size: 10, italic: true, color: { argb: 'FF746B5C' } };
+      vFlex.numFmt = FMT_MONEY;
+      vFlex.alignment = { horizontal: 'center' };
+      fila += 1;
+
+      const total = Object.values(porDueño).reduce((s, v) => s + v, 0);
+      ws.mergeCells(fila, colLabel, fila, colVal);
+      const cellTotal = ws.getCell(fila, colLabel);
+      cellTotal.value = `${etiquetaTotal}:  ${formatearMonedaEntero(total)}`;
+      cellTotal.font = { name: FONT, size: 14, bold: true, color: { argb: totalColor } };
+      cellTotal.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: totalFill } };
+      cellTotal.alignment = { vertical: 'middle', horizontal: 'center' };
+      ws.getRow(fila).height = 28;
+
+      return fila + 2;
+    }
+
+    let filaSig = tarjeta(3, `DINERO COBRADO — liberado hasta el ${fechaTexto}`, cobradoPorDueño, flexCobrado,
+      'TOTAL LIBERADO', COLOR_MARCA, 'FFFFFFFF', 'FFFFFFFF', 'FF0F5132');
+    filaSig = tarjeta(filaSig, `DINERO A COBRAR — pendiente después del ${fechaTexto}`, aCobrarPorDueño, flexACobrar,
+      'TOTAL A COBRAR', 'FFE8C97A', 'FF4A3A10', 'FFFFFFFF', 'FF9C7A2E');
+
+    if (cruce.flexDescontadoCount > 0){
+      const tituloFlex = ws.getCell(filaSig, colLabel);
+      tituloFlex.value = 'Flex real descontado de estas ventas';
+      tituloFlex.font = { name: FONT, size: 11, bold: true };
+      filaSig += 1;
+
+      const filasFlex = [
+        ['Total descontado', -cruce.flexDescontadoTotal, FMT_MONEY],
+        ['Ventas con envío identificado', cruce.flexDescontadoCount, FMT_INT],
+      ];
+      if (cruce.flexPromedioUsadoCount > 0){
+        filasFlex.push([`· sin costo cargado en la logística (ver detalle en la última hoja)`, cruce.flexPromedioUsadoCount, FMT_INT]);
+      }
+      filasFlex.forEach(([etiqueta, valor, formato]) => {
+        const l = ws.getCell(filaSig, colLabel);
+        l.value = etiqueta;
+        l.font = etiqueta.startsWith('·') ? { name: FONT, size: 9.5, italic: true, color: { argb: 'FF746B5C' } } : { name: FONT, size: 10 };
+        if (etiqueta.startsWith('·')) l.alignment = { indent: 1 };
+        const v = ws.getCell(filaSig, colVal);
+        v.value = valor;
+        v.font = etiqueta.startsWith('·') ? { name: FONT, size: 9.5, italic: true, color: { argb: 'FF746B5C' } } : { name: FONT, size: 10, bold: true };
+        v.numFmt = formato;
+        v.alignment = { horizontal: 'center' };
+        filaSig += 1;
+      });
+    }
+
+    // Ventas completadas con el promedio de flex — se devuelven para que las liste la última hoja
+    const usaronPromedio = cruce.identificados.filter(m => m.flexDescontado > 0 && cruce.promedioFlexReal && m.flexDescontado === cruce.promedioFlexReal);
+    return { usaronPromedio };
   }
 
   // input = { persona, cuentas: [{ nombre, filas, desglosePresentes, resumen, resumenTerceros }, ...],
@@ -1808,13 +1879,25 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const resumenTercerosFinal = multi ? unificado.resumenTerceros : cuentas[0].resumenTerceros;
     const terceros = construirTerceros(wb, resumenTercerosFinal, fuentes, persona);
 
-    construirAnalitica(wb, fuentes, terceros, bloquePrincipal, persona, gastoGrupalInfo);
+    const wsAnalitica = construirAnalitica(wb, fuentes, terceros, bloquePrincipal, persona, gastoGrupalInfo);
 
+    let ventasFlexPromedio = null;
     if (input.existencias){
-      construirExistencias(wb, input.existencias.cruce, input.existencias.fechaCorte, persona, input.existencias.dueño);
+      const COL_EXISTENCIAS = 6; // columna F
+      const resultado = escribirBloqueExistencias(wsAnalitica, COL_EXISTENCIAS, input.existencias.cruce, input.existencias.fechaCorte, persona, input.existencias.dueño);
+      ventasFlexPromedio = resultado.usaronPromedio;
     }
 
-    construirDevoluciones(wb, cuentas);
+    construirDevoluciones(wb, cuentas, ventasFlexPromedio, 'DEVOL-CANCEL Y FLEX S-ENCONTR');
+
+    // Orden final de las pestañas (se crean en otro orden porque las fórmulas de Resumen/
+    // Terceros/Análisis general necesitan que la hoja Ventas ya exista al momento de armarlas)
+    const ordenDeseado = ['Análisis general', NOMBRE_HOJA_RESUMEN, 'Terceros',
+      ...fuentes.map(f => f.nombreHoja), 'DEVOL-CANCEL Y FLEX S-ENCONTR'];
+    ordenDeseado.forEach((nombre, i) => {
+      const hoja = wb.getWorksheet(nombre);
+      if (hoja) hoja.orderNo = i;
+    });
 
     return await wb.xlsx.writeBuffer();
   }
@@ -2138,9 +2221,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       // Gastos grupales del mes (opcional): según qué cuenta(s) eligió y qué mes cubren las ventas
       let gastoGrupalInfo = null;
       const meses = mesesDeVentas(cuentas);
-      const montoGasto = calcularGastosGrupales(costos.gastosGrupales, op.dueño, op.cuentas, meses);
-      if (montoGasto != null){
-        gastoGrupalInfo = { monto: montoGasto, mesesTexto: meses.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(' + ') };
+      const desgloseGasto = calcularGastosGrupales(costos.gastosGrupales, op.dueño, op.cuentas, meses);
+      if (desgloseGasto != null){
+        gastoGrupalInfo = { ...desgloseGasto, mesesTexto: meses.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(' + ') };
       }
 
       const buffer = await construirReporte({ persona: op.label, cuentas, unificado, existencias, gastoGrupalInfo });
