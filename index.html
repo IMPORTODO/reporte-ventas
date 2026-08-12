@@ -186,6 +186,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   .details-body strong{ color: var(--ink); }
   footer.foot{ text-align:center; margin-top: 20px; font-size: 12px; color: var(--ink-faint); }
   @media (prefers-reduced-motion: reduce){ *{ transition: none !important; animation: none !important; } }
+
+  .modal-backdrop{ position: fixed; inset: 0; background: rgba(30,26,18,0.5); display:flex; align-items:center; justify-content:center; z-index: 1000; padding: 20px; }
+  .modal-box{ background: var(--paper); border-radius: var(--radius); box-shadow: var(--shadow); padding: clamp(20px, 4vw, 28px); max-width: 420px; width:100%; }
+  .modal-box h3{ margin: 0 0 8px; font-size: 17px; }
+  .modal-box p.hint{ font-size: 13px; color: var(--ink-soft); line-height: 1.5; margin: 0 0 16px; }
+  .modal-box input[type="number"]{ width: 100%; font-family: 'SF Mono', 'Cascadia Code', Consolas, 'Courier New', monospace; font-size: 15px;
+    padding: 11px 12px; border: 1.5px solid var(--line); border-radius: 9px; background: var(--paper-soft); }
+  .modal-box input[type="number"]:focus{ outline: none; border-color: var(--accent); background: #fff; }
+  .modal-actions{ display:flex; gap: 10px; margin-top: 18px; }
+  .modal-actions button{ flex:1; padding: 11px 14px; border-radius: 9px; font-size: 13.5px; font-weight: 700; cursor:pointer; border: none; }
+  .modal-actions .btn-omitir{ background: transparent; border: 1.5px solid var(--line); color: var(--ink-soft); }
+  .modal-actions .btn-omitir:hover{ background: var(--paper-soft); }
+  .modal-actions .btn-continuar{ background: var(--ink); color: #fff; }
+  .modal-actions .btn-continuar:hover{ background: var(--accent-ink); }
 </style>
 </head>
 <body>
@@ -245,9 +259,40 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         </div>
       </div>
 
+      <div class="zone step-hidden" id="zona-envios" style="margin-top:14px;">
+        <p class="zone-label" id="zone-label-envios"><span class="num">+</span> Envíos (opcional)</p>
+        <p class="zone-hint" style="margin-bottom:8px;">Sumá el listado de envíos de tu logística para descontar el costo real de flex de cada venta. Cubrí un rango de fechas un poco más amplio que tus ventas, por si algún envío se procesa unos días después. Si no lo subís, te vamos a pedir un costo de flex fijo para aplicar a esas ventas.</p>
+        <div class="dropzone" id="dz-envios" tabindex="0" role="button" aria-label="Elegir o arrastrar el listado de envíos">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <p class="dz-title" id="dz-title-envios">Arrastrá el listado de envíos</p>
+          <p class="dz-sub" id="dz-sub-envios">o hacé clic para elegirlo · .xlsx/.xls</p>
+        </div>
+        <input type="file" id="input-envios" accept=".xlsx,.xls">
+        <div class="file-chip step-hidden" id="chip-envios">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.4"/><path d="M14 2v5h5" stroke="currentColor" stroke-width="1.4"/></svg>
+          <span class="name" id="name-envios">archivo.xlsx</span>
+          <button id="btn-quitar-envios" aria-label="Quitar archivo" type="button">&times;</button>
+        </div>
+
+        <div class="zone step-hidden" id="zona-envios2" style="margin-top:12px;">
+          <p class="zone-label" id="zone-label-envios2"><span class="num">+</span> Envíos de la segunda cuenta</p>
+          <div class="dropzone" id="dz-envios2" tabindex="0" role="button" aria-label="Elegir o arrastrar el listado de envíos de la segunda cuenta">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <p class="dz-title" id="dz-title-envios2">Arrastrá el listado de la 2da cuenta</p>
+            <p class="dz-sub" id="dz-sub-envios2">o hacé clic para elegirlo · .xlsx/.xls</p>
+          </div>
+          <input type="file" id="input-envios2" accept=".xlsx,.xls">
+          <div class="file-chip step-hidden" id="chip-envios2">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.4"/><path d="M14 2v5h5" stroke="currentColor" stroke-width="1.4"/></svg>
+            <span class="name" id="name-envios2">archivo.xlsx</span>
+            <button id="btn-quitar-envios2" aria-label="Quitar archivo" type="button">&times;</button>
+          </div>
+        </div>
+      </div>
+
       <div class="zone step-hidden" id="zona-settlement" style="margin-top:14px;">
-        <p class="zone-label" id="zone-label-settlement"><span class="num">+</span> Existencias (opcional)</p>
-        <p class="zone-hint" style="margin-bottom:8px;">Subí solo el Excel de ventas para ver rentabilidad. Sumá el reporte "Cobros" de MercadoPago para agregar la hoja Existencias (plata cobrada y a cobrar, por vendedor).</p>
+        <p class="zone-label" id="zone-label-settlement"><span class="num">+</span> Cobros (opcional)</p>
+        <p class="zone-hint" style="margin-bottom:8px;">Sumá el reporte "Cobros" de MercadoPago para agregar la hoja Existencias (plata cobrada y a cobrar, por vendedor).</p>
         <div class="dropzone" id="dz-settlement" tabindex="0" role="button" aria-label="Elegir o arrastrar el reporte de MercadoPago">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <p class="dz-title" id="dz-title-settlement">Arrastrá el reporte de MercadoPago</p>
@@ -261,7 +306,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         </div>
 
         <div class="zone step-hidden" id="zona-settlement2" style="margin-top:12px;">
-          <p class="zone-label" id="zone-label-settlement2"><span class="num">+</span> Cobros de la segunda cuenta</p>
+          <p class="zone-label" id="zone-label-settlement2"><span class="num">+</span> Cobros de la segunda cuenta (opcional)</p>
           <div class="dropzone" id="dz-settlement2" tabindex="0" role="button" aria-label="Elegir o arrastrar el reporte de MercadoPago de la segunda cuenta">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <p class="dz-title" id="dz-title-settlement2">Arrastrá el reporte de la 2da cuenta</p>
@@ -274,42 +319,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             <button id="btn-quitar-settlement2" aria-label="Quitar archivo" type="button">&times;</button>
           </div>
         </div>
+      </div>
 
-        <div class="field" id="campo-fecha-corte" style="margin-top:12px;">
-          <label for="fecha-corte">Fecha de corte</label>
-          <input type="date" id="fecha-corte">
-          <p class="hint">Lo que se libera hasta esta fecha cuenta como "cobrado"; lo que se libera después, como "a cobrar". Por defecto, hoy. (Es una sola fecha, aunque uses dos cuentas.)</p>
-        </div>
-
-        <div class="field" id="campo-envios" style="margin-top:12px;">
-          <p class="zone-hint" style="margin-bottom:8px;">Sumá también el listado de envíos de tu logística para descontar el costo real de flex de cada venta (reemplaza cualquier estimación fija). Cubrí un rango de fechas un poco más amplio que tus ventas, por si algún envío se procesa unos días después.</p>
-          <div class="dropzone" id="dz-envios" tabindex="0" role="button" aria-label="Elegir o arrastrar el listado de envíos">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <p class="dz-title" id="dz-title-envios">Arrastrá el listado de envíos</p>
-            <p class="dz-sub" id="dz-sub-envios">o hacé clic para elegirlo · .xlsx/.xls</p>
-          </div>
-          <input type="file" id="input-envios" accept=".xlsx,.xls">
-          <div class="file-chip step-hidden" id="chip-envios">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.4"/><path d="M14 2v5h5" stroke="currentColor" stroke-width="1.4"/></svg>
-            <span class="name" id="name-envios">archivo.xlsx</span>
-            <button id="btn-quitar-envios" aria-label="Quitar archivo" type="button">&times;</button>
-          </div>
-
-          <div class="zone step-hidden" id="zona-envios2" style="margin-top:12px;">
-            <p class="zone-label" id="zone-label-envios2"><span class="num">+</span> Envíos de la segunda cuenta</p>
-            <div class="dropzone" id="dz-envios2" tabindex="0" role="button" aria-label="Elegir o arrastrar el listado de envíos de la segunda cuenta">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <p class="dz-title" id="dz-title-envios2">Arrastrá el listado de la 2da cuenta</p>
-              <p class="dz-sub" id="dz-sub-envios2">o hacé clic para elegirlo · .xlsx/.xls</p>
-            </div>
-            <input type="file" id="input-envios2" accept=".xlsx,.xls">
-            <div class="file-chip step-hidden" id="chip-envios2">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.4"/><path d="M14 2v5h5" stroke="currentColor" stroke-width="1.4"/></svg>
-              <span class="name" id="name-envios2">archivo.xlsx</span>
-              <button id="btn-quitar-envios2" aria-label="Quitar archivo" type="button">&times;</button>
-            </div>
-          </div>
-        </div>
+      <div class="field step-hidden" id="campo-fecha-corte" style="margin-top:14px;">
+        <label for="fecha-corte">Fecha de corte (opcional)</label>
+        <input type="date" id="fecha-corte">
+        <p class="hint">Lo que se libera hasta esta fecha cuenta como "cobrado"; lo que se libera después, como "a cobrar". Si no la completás, se usa la fecha de tu última venta cargada. (Es una sola fecha, aunque uses dos cuentas.)</p>
       </div>
 
       <button class="primary" id="process-btn" disabled>Generar reporte</button>
@@ -356,6 +371,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   </div>
 
   <footer class="foot">Tu archivo de ventas nunca se sube a internet. Solo se consulta, en vivo, la planilla de costos.</footer>
+</div>
+
+<div class="modal-backdrop step-hidden" id="modal-flex-manual">
+  <div class="modal-box">
+    <h3>¿Cuánto te descuenta el flex por envío?</h3>
+    <p class="hint">No subiste el listado de envíos, así que no tenemos el costo real de flex por venta. Ingresá un monto fijo y lo aplicamos a cada venta con flex — o continuá sin descontar nada.</p>
+    <input type="number" id="input-flex-manual" placeholder="Ej: 8000" min="0" step="1">
+    <div class="modal-actions">
+      <button type="button" class="btn-omitir" id="btn-flex-omitir">Continuar sin descontar</button>
+      <button type="button" class="btn-continuar" id="btn-flex-continuar">Aplicar y continuar</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -916,20 +943,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         continue;
       }
 
-      // Descontar el costo real de flex de esta venta puntual, si viene en el archivo de envíos.
-      // Se busca primero por el order_id del propio archivo de MercadoPago, y si no, por el
-      // # de venta ya confirmado por fecha/hora. Si el envío está pero figura en $0, se toma
-      // como un error de carga de la logística y se usa el promedio real del mes en su lugar.
-      // Si este envío ya se descontó en otro movimiento (ej: la misma venta pagada en dos
-      // cuotas, generando dos movimientos), no se vuelve a descontar — se controla por la
-      // clave del envío (order_id o # de venta), no solo por venta confirmada, para cubrir
-      // también los casos en que no se pudo confirmar con certeza a qué venta corresponde.
+      // Descontar el costo real de flex de esta venta puntual, si viene en el archivo de
+      // envíos — SOLO cuando se pudo confirmar con certeza a qué venta corresponde. Así lo
+      // que se resta acá es exactamente lo mismo que se puede escribir en la hoja Ventas, y
+      // "Total descontado" (Existencias) siempre coincide con "Total de flex pagado"
+      // (Análisis general). Si no se puede confirmar la venta, se prefiere no descontar nada
+      // antes que mostrar dos totales que no cierran entre sí.
       let flexDescontado = 0;
-      if (mapaEnvios){
+      if (mapaEnvios && idVenta && !ventasFlexYaDescontado.has(idVenta)){
         const claveEnvio = (m.orderId && mapaEnvios[m.orderId] !== undefined) ? m.orderId
-          : (idVenta && mapaEnvios[idVenta] !== undefined) ? idVenta : null;
-        const yaDescontado = claveEnvio && ventasFlexYaDescontado.has(claveEnvio);
-        if (claveEnvio && !yaDescontado){
+          : (mapaEnvios[idVenta] !== undefined) ? idVenta : null;
+        if (claveEnvio){
           flexDescontado = mapaEnvios[claveEnvio];
           if (flexDescontado === 0 && promedioFlexReal > 0){
             flexDescontado = promedioFlexReal;
@@ -937,8 +961,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           }
           flexDescontadoTotal += flexDescontado;
           flexDescontadoCount += 1;
-          ventasFlexYaDescontado.add(claveEnvio);
-          if (idVenta) flexPorVenta[idVenta] = flexDescontado;
+          ventasFlexYaDescontado.add(idVenta);
+          flexPorVenta[idVenta] = flexDescontado;
         }
       }
 
@@ -980,6 +1004,70 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       }
     }
     return aplicados;
+  }
+
+  // Cuando no hay archivo de envíos, se aplica un monto fijo (elegido por el usuario en el
+  // modal) a toda venta que haya usado flex (tiene "Descuentos y bonificaciones" cargado).
+  function aplicarFlexManual(filas, montoManual){
+    let aplicados = 0;
+    for (const f of filas){
+      if (f['Descuentos y bonificaciones'] != null){
+        f['Costo flex'] = -montoManual;
+        f['Total (ARS)'] = f['Total (ARS)'] - montoManual;
+        aplicados += 1;
+      }
+    }
+    return aplicados;
+  }
+
+  // Última fecha de venta entre todas las cuentas cargadas — se usa como fecha de corte
+  // por defecto cuando el usuario no eligió una.
+  function obtenerUltimaFechaVenta(cuentas){
+    let max = -Infinity;
+    for (const c of cuentas){
+      for (const f of c.filas){
+        const ms = parsearFechaVenta(f['Fecha de venta']);
+        if (ms != null && ms > max) max = ms;
+      }
+    }
+    return isFinite(max) ? new Date(max) : null;
+  }
+
+  // Sin el archivo de Cobros no hay forma de "traducir" pedidos de varios productos (el
+  // truco de cruzar por SKU+fecha necesita el order_id individual que solo trae Cobros) —
+  // se cruza directo por # de venta, que cubre los pedidos de un solo producto. Para el
+  // resto de las ventas que sí usaron flex (tienen "Descuentos y bonificaciones" cargado)
+  // pero no se pudieron identificar directo, se completa con el promedio real del mes —
+  // mismo criterio que ya usamos para el caso $0 con Cobros. Sin esto, esas ventas quedan
+  // con más rentabilidad de la real, porque no se les descuenta el envío pagado por fuera.
+  function aplicarFlexDirecto(cuentas, mapaEnvios, promedioFlexReal){
+    const flexPorVenta = {};
+    const ventasFlexPromedio = [];
+    let promedioUsados = 0;
+    for (const c of cuentas){
+      for (const f of c.filas){
+        if (f['Descuentos y bonificaciones'] == null) continue; // esta venta no usó flex
+        const idVenta = f['# de venta'];
+        let costo;
+        let usoPromedio = false;
+        if (mapaEnvios[idVenta] !== undefined && mapaEnvios[idVenta] > 0){
+          costo = mapaEnvios[idVenta];
+        } else if (promedioFlexReal > 0){
+          costo = promedioFlexReal;
+          usoPromedio = true;
+        } else {
+          continue; // no hay ni el real ni un promedio calculable (no debería pasar si mapaEnvios no está vacío)
+        }
+        if (usoPromedio){
+          promedioUsados += 1;
+          ventasFlexPromedio.push({ sku: f.SKU, producto: f.Producto, fechaLiberacion: f['Fecha de venta'], flexDescontado: costo });
+        }
+        flexPorVenta[idVenta] = costo;
+      }
+    }
+    let aplicados = 0;
+    for (const c of cuentas) aplicados += aplicarFlexReal(c.filas, flexPorVenta);
+    return { aplicados, promedioUsados, totalDescontado: Object.values(flexPorVenta).reduce((s, v) => s + v, 0), ventasFlexPromedio };
   }
 
   function combinarVentasYCostos(filas, desglosePresentes, costos, personaSeleccionada){
@@ -1526,19 +1614,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     filaPrincipal('Total de flex pagado — informativo, ya está descontado arriba', { formula: flexPagadoF }, FMT_MONEY);
     fila += 1;
 
-    const filaGananciaTotal = filaPrincipal('Ganancia total (solo mis productos)',
-      { formula: `SUMPRODUCT((${rResumenF}<>"")*(${rResumenE}-${rResumenF})*${rResumenC})` }, FMT_MONEY);
-    const filaImpactoDevol = filaPrincipal('Impacto devoluciones/cancelaciones', { formula: impactoDevolF }, FMT_MONEY);
-    fila += 1;
-
-    // "GANANCIA TOTAL": referencia de cuánto mueve la cuenta en total (tu ganancia + lo que
-    // hay que transferirle a terceros) — fila normal, no es la ganancia final tuya.
+    // "Ganancia total" ya incluye la plata de terceros (se resta más abajo, en "NO ES TUYO") —
+    // así no hay dos números distintos con el mismo nombre confundiendo.
     const nombresTercerosGT = Object.keys(terceros.subtotales);
     const terceroTotalF = nombresTercerosGT.length
       ? nombresTercerosGT.map(n => `'Terceros'!${terceros.subtotales[n].col}${terceros.subtotales[n].fila}`).join('+')
       : '0';
-    filaPrincipal('GANANCIA TOTAL (incluye plata de terceros)',
-      { formula: `B${filaGananciaTotal}+B${filaImpactoDevol}+(${terceroTotalF})` }, FMT_MONEY);
+    const filaGananciaTotal = filaPrincipal('Ganancia total (incluye plata de terceros)',
+      { formula: `SUMPRODUCT((${rResumenF}<>"")*(${rResumenE}-${rResumenF})*${rResumenC})+(${terceroTotalF})` }, FMT_MONEY);
+    const filaImpactoDevol = filaPrincipal('Impacto devoluciones/cancelaciones', { formula: impactoDevolF }, FMT_MONEY);
     fila += 1;
 
     // ---- Sección terceros: se resta acá, antes de llegar a la ganancia final ----
@@ -1579,7 +1663,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       });
     }
     // Total que se resta — deja bien claro que de acá en más ya volvimos a "lo tuyo"
-    filaPrincipal('TOTAL NO ES TUYO', { formula: `-(${terceroTotalF})` }, FMT_MONEY);
+    const filaTotalNoEsTuyo = filaPrincipal('TOTAL NO ES TUYO', { formula: `-(${terceroTotalF})` }, FMT_MONEY);
     fila += 1;
 
     // ---- Gastos mensuales del negocio, detallados por categoría (opcional — solo si hay datos) ----
@@ -1600,7 +1684,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const filaFinal = fila;
     ws.mergeCells(filaFinal, 1, filaFinal, 2);
     const cellFinal = ws.getCell(filaFinal, 1);
-    cellFinal.value = { formula: `"GANANCIA NETA FINAL:  " & TEXT(B${filaGananciaTotal}+B${filaImpactoDevol}+(${gastosTotalF}),"$#,##0")` };
+    cellFinal.value = { formula: `"GANANCIA NETA FINAL:  " & TEXT(B${filaGananciaTotal}+B${filaImpactoDevol}+B${filaTotalNoEsTuyo}+(${gastosTotalF}),"$#,##0")` };
     cellFinal.font = { name: FONT, size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
     cellFinal.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F5132' } };
     cellFinal.alignment = { vertical: 'middle', horizontal: 'center' };
@@ -1719,7 +1803,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     function agruparPorDueño(lista){
       const out = {};
-      for (const m of lista){ out[m.dueño] = (out[m.dueño] || 0) + m.monto; }
+      for (const m of lista){ out[m.dueño] = (out[m.dueño] || 0) + m.monto + (m.flexDescontado || 0); }
       return out;
     }
     const cobrados = cruce.identificados.filter(m => m.cobrado);
@@ -1794,7 +1878,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       vFlex.alignment = { horizontal: 'center' };
       fila += 1;
 
-      const total = Object.values(porDueño).reduce((s, v) => s + v, 0);
+      const total = Object.values(porDueño).reduce((s, v) => s + v, 0) - flexSeccion;
       ws.mergeCells(fila, colLabel, fila, colVal);
       const cellTotal = ws.getCell(fila, colLabel);
       cellTotal.value = `${etiquetaTotal}:  ${formatearMonedaEntero(total)}`;
@@ -1848,7 +1932,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   //           gastoGrupalInfo: { monto, mesesTexto } | null }
   async function construirReporte(input){
     const wb = new ExcelJS.Workbook();
-    const { persona, cuentas, unificado, gastoGrupalInfo } = input;
+    const { persona, cuentas, unificado, gastoGrupalInfo, ventasFlexPromedioDirecto } = input;
     const multi = cuentas.length > 1;
 
     const fuentes = cuentas.map(c => {
@@ -1881,7 +1965,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     const wsAnalitica = construirAnalitica(wb, fuentes, terceros, bloquePrincipal, persona, gastoGrupalInfo);
 
-    let ventasFlexPromedio = null;
+    let ventasFlexPromedio = ventasFlexPromedioDirecto || null;
     if (input.existencias){
       const COL_EXISTENCIAS = 6; // columna F
       const resultado = escribirBloqueExistencias(wsAnalitica, COL_EXISTENCIAS, input.existencias.cruce, input.existencias.fechaCorte, persona, input.existencias.dueño);
@@ -1955,14 +2039,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   };
   const zonaVentas1 = document.getElementById('zona-ventas1');
   const zonaVentas2 = document.getElementById('zona-ventas2');
+  const zonaEnvios = document.getElementById('zona-envios');
   const zonaSettlement = document.getElementById('zona-settlement');
   const zonaSettlement2 = document.getElementById('zona-settlement2');
   const zonaEnvios2 = document.getElementById('zona-envios2');
   const zoneLabel1 = document.getElementById('zone-label-1');
   const zoneLabel2 = document.getElementById('zone-label-2');
+  const zoneLabelEnvios = document.getElementById('zone-label-envios');
   const zoneLabelSettlement = document.getElementById('zone-label-settlement');
   const zoneLabelSettlement2 = document.getElementById('zone-label-settlement2');
   const zoneLabelEnvios2 = document.getElementById('zone-label-envios2');
+  const campoFechaCorte = document.getElementById('campo-fecha-corte');
   const fechaCorteInput = document.getElementById('fecha-corte');
 
   const personaSelect = document.getElementById('persona-select');
@@ -1982,17 +2069,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!op){
       zonaVentas1.classList.add('step-hidden');
       zonaVentas2.classList.add('step-hidden');
+      zonaEnvios.classList.add('step-hidden');
       zonaSettlement.classList.add('step-hidden');
       zonaSettlement2.classList.add('step-hidden');
       zonaEnvios2.classList.add('step-hidden');
+      campoFechaCorte.classList.add('step-hidden');
       return;
     }
     zonaVentas1.classList.remove('step-hidden');
+    zonaEnvios.classList.remove('step-hidden');
     zonaSettlement.classList.remove('step-hidden');
+    campoFechaCorte.classList.remove('step-hidden');
     const nombreCta1 = op.cuentas[0];
     zoneLabel1.innerHTML = `<span class="num">1</span> Ventas de ${nombreCta1}`;
     zonas.v1.defaultTitle = `Arrastrá el Excel de ${nombreCta1}`;
     if (!zonas.v1.archivo){ zonas.v1.title.textContent = zonas.v1.defaultTitle; }
+    zoneLabelEnvios.innerHTML = `<span class="num">+</span> Envíos de ${nombreCta1} (opcional)`;
+    zonas.envios.defaultTitle = `Arrastrá el listado de ${nombreCta1}`;
+    if (!zonas.envios.archivo){ zonas.envios.title.textContent = zonas.envios.defaultTitle; }
 
     if (op.cuentas.length > 1){
       const nombreCta2 = op.cuentas[1];
@@ -2004,8 +2098,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       zoneLabelSettlement.innerHTML = `<span class="num">+</span> Cobros de ${nombreCta1} (opcional)`;
       zonaSettlement2.classList.remove('step-hidden');
       zonaEnvios2.classList.remove('step-hidden');
-      zoneLabelSettlement2.innerHTML = `<span class="num">+</span> Cobros de ${nombreCta2}`;
-      zoneLabelEnvios2.innerHTML = `<span class="num">+</span> Envíos de ${nombreCta2}`;
+      zoneLabelSettlement2.innerHTML = `<span class="num">+</span> Cobros de ${nombreCta2} (opcional)`;
+      zoneLabelEnvios2.innerHTML = `<span class="num">+</span> Envíos de ${nombreCta2} (opcional)`;
       zonas.settlement2.defaultTitle = `Arrastrá el reporte de ${nombreCta2}`;
       zonas.envios2.defaultTitle = `Arrastrá el listado de ${nombreCta2}`;
       if (!zonas.settlement2.archivo){ zonas.settlement2.title.textContent = zonas.settlement2.defaultTitle; }
@@ -2013,7 +2107,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     } else {
       zonaVentas2.classList.add('step-hidden');
       limpiarArchivo('v2');
-      zoneLabelSettlement.innerHTML = `<span class="num">+</span> Existencias (opcional)`;
+      zoneLabelSettlement.innerHTML = `<span class="num">+</span> Cobros (opcional)`;
       zonaSettlement2.classList.add('step-hidden');
       zonaEnvios2.classList.add('step-hidden');
       limpiarArchivo('settlement2');
@@ -2037,6 +2131,38 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const statusTexto = document.getElementById('status-texto');
 
   function mostrarError(msg){ errorBox.textContent = msg; errorBox.classList.add('show'); }
+
+  // Modal de flex manual: se muestra cuando hay ventas con flex pero no se cargó el listado
+  // de envíos. Devuelve el monto elegido, o null si el usuario prefiere continuar sin descontar.
+  function mostrarModalFlexManual(){
+    return new Promise((resolve) => {
+      const modal = document.getElementById('modal-flex-manual');
+      const input = document.getElementById('input-flex-manual');
+      const btnContinuar = document.getElementById('btn-flex-continuar');
+      const btnOmitir = document.getElementById('btn-flex-omitir');
+      input.value = '';
+      modal.classList.remove('step-hidden');
+      input.focus();
+
+      function limpiar(){
+        modal.classList.add('step-hidden');
+        btnContinuar.removeEventListener('click', onContinuar);
+        btnOmitir.removeEventListener('click', onOmitir);
+      }
+      function onContinuar(){
+        const val = parseFloat(input.value);
+        limpiar();
+        resolve((isNaN(val) || val <= 0) ? null : val);
+      }
+      function onOmitir(){
+        limpiar();
+        resolve(null);
+      }
+      btnContinuar.addEventListener('click', onContinuar);
+      btnOmitir.addEventListener('click', onOmitir);
+    });
+  }
+
   function ocultarError(){ errorBox.classList.remove('show'); }
   function actualizarEstadoConexion(tipo, texto){
     statusConexion.classList.remove('step-hidden');
@@ -2149,6 +2275,32 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         });
       }
 
+      // Flex manual: si hay ventas con flex pero no se cargó el listado de envíos, se le
+      // pregunta al usuario un monto fijo para aplicar a esas ventas (en vez de dejarlas sin
+      // costo de flex descontado).
+      if (!zonas.envios.archivo){
+        const hayFlexIndicado = cuentas.some(c => c.filas.some(f => f['Descuentos y bonificaciones'] != null));
+        if (hayFlexIndicado){
+          const montoManual = await mostrarModalFlexManual();
+          if (montoManual != null){
+            for (const c of cuentas) aplicarFlexManual(c.filas, montoManual);
+          }
+        }
+      }
+
+      // Envíos: se lee siempre que esté cargado, tenga o no Cobros también cargado.
+      // Con Cobros: se usa para el cruce completo por SKU+fecha (mejor cobertura).
+      // Sin Cobros: se cruza directo por # de venta (cubre pedidos de un solo producto).
+      let mapaEnvios = null;
+      if (zonas.envios.archivo){
+        const bufEnvios = await leerComoArrayBuffer(zonas.envios.archivo);
+        mapaEnvios = leerEnvios(bufEnvios);
+        if (zonas.envios2.archivo){
+          const bufEnvios2 = await leerComoArrayBuffer(zonas.envios2.archivo);
+          Object.assign(mapaEnvios, leerEnvios(bufEnvios2));
+        }
+      }
+
       // ---- Existencias (opcional): cruzar el reporte de MercadoPago contra las ventas cargadas, por SKU ----
       // Sin este archivo, "Modo Solo Meli": rentabilidad tal cual la reporta Meli, sin descuento de flex.
       let existencias = null;
@@ -2184,18 +2336,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           cashbacks = cashbacks.concat(r2.cashbacks);
         }
 
-        // Envíos: opcional, también se combinan las dos cuentas si están cargadas
-        let mapaEnvios = null;
-        if (zonas.envios.archivo){
-          const bufEnvios = await leerComoArrayBuffer(zonas.envios.archivo);
-          mapaEnvios = leerEnvios(bufEnvios);
-          if (zonas.envios2.archivo){
-            const bufEnvios2 = await leerComoArrayBuffer(zonas.envios2.archivo);
-            Object.assign(mapaEnvios, leerEnvios(bufEnvios2));
-          }
+        let fechaCorte;
+        if (fechaCorteInput.value){
+          fechaCorte = new Date(fechaCorteInput.value + 'T23:59:59');
+        } else {
+          const ultimaVenta = obtenerUltimaFechaVenta(cuentas);
+          fechaCorte = ultimaVenta
+            ? new Date(ultimaVenta.getFullYear(), ultimaVenta.getMonth(), ultimaVenta.getDate(), 23, 59, 59)
+            : new Date();
         }
-
-        const fechaCorte = fechaCorteInput.value ? new Date(fechaCorteInput.value + 'T23:59:59') : new Date();
         const promedioFlexReal = mapaEnvios ? promedioFlexPositivo(mapaEnvios) : 0;
         const cruce = cruzarMovimientosPago(movimientos, cashbacks, mapaSku, mapaEnvios, promedioFlexReal, fechaCorte, op.dueño, mapaVentasPorId, todasLasVentas);
         existencias = { cruce, fechaCorte, dueño: op.dueño };
@@ -2206,6 +2355,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (Object.keys(cruce.flexPorVenta).length > 0){
           for (const c of cuentas) aplicarFlexReal(c.filas, cruce.flexPorVenta);
         }
+      }
+      let ventasFlexPromedioDirecto = null;
+      if (!zonas.settlement.archivo && mapaEnvios){
+        // Sin Cobros no hay forma de "traducir" pedidos de varios productos (ese cruce
+        // necesita el order_id individual que solo trae Cobros) — se cruza directo por
+        // # de venta, que cubre los pedidos de un solo producto. Al resto de las ventas
+        // con flex que no se pudieron identificar directo, se les completa con el
+        // promedio real del mes — así ninguna queda con más rentabilidad de la real.
+        const promedioFlexReal = promedioFlexPositivo(mapaEnvios);
+        const resultado = aplicarFlexDirecto(cuentas, mapaEnvios, promedioFlexReal);
+        ventasFlexPromedioDirecto = resultado.ventasFlexPromedio;
+        modo = `Meli + Flex real directo (${resultado.aplicados} venta/s con flex, ${resultado.promedioUsados} completadas con el promedio)`;
       }
 
       let unificado = null;
@@ -2226,7 +2387,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         gastoGrupalInfo = { ...desgloseGasto, mesesTexto: meses.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(' + ') };
       }
 
-      const buffer = await construirReporte({ persona: op.label, cuentas, unificado, existencias, gastoGrupalInfo });
+      const buffer = await construirReporte({ persona: op.label, cuentas, unificado, existencias, gastoGrupalInfo, ventasFlexPromedioDirecto });
 
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const rango = calcularRangoFechas(cuentas);
