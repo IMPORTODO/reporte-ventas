@@ -523,6 +523,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     // Opcional, solo para el detalle de devoluciones/cancelaciones (no se muestra en la hoja Ventas)
     const idxMotivo = indiceDe('Descripción del estado');
     const idxSku = indiceDe('SKU');
+    // Opcional: para cruzar por dirección con el listado de envíos cuando no hay Cobros
+    // (ver aplicarFlexDirecto) — no se muestra en la hoja Ventas final.
+    const idxDomicilio = indiceDe('Domicilio');
 
     const filas = [];
     for (let i = filaHeader + 1; i < aoa.length; i++){
@@ -543,6 +546,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         "Estado": fila[indices["Estado"]],
         "Motivo": idxMotivo !== -1 ? fila[idxMotivo] : '',
         "SKU": idxSku !== -1 ? fila[idxSku] : '',
+        "_calleNormalizada": idxDomicilio !== -1 ? normalizarDireccion(calleDeDomicilio(fila[idxDomicilio])) : null,
         "Costo flex": null,
         "Unidades": unidades,
         "Ingresos por productos (ARS)": ingresos,
@@ -727,6 +731,27 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const ALIAS_ID_VENTA_ENVIO = ['id venta ml'];
   const ALIAS_PRECIO_ENVIO = ['precio'];
 
+  // Extrae solo la calle/altura de un domicilio completo (en el export de Meli, todo lo
+  // que sigue al primer "/" es referencia/CP/ciudad, no la calle en sí).
+  function calleDeDomicilio(domicilio){
+    if (esVacio(domicilio)) return null;
+    return String(domicilio).split('/')[0].trim();
+  }
+
+  function normalizarDireccion(s){
+    if (esVacio(s)) return null;
+    return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  }
+
+  // Fecha corta tipo "30/07/2026" (sin hora) — la usa el listado de envíos en "Fecha Venta".
+  function parsearFechaCorta(texto){
+    if (esVacio(texto)) return null;
+    const m = String(texto).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (!m) return null;
+    const t = new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10)).getTime();
+    return isNaN(t) ? null : t;
+  }
+
   function leerEnvios(arrayBuffer){
     const wb = XLSX.read(arrayBuffer, { type: 'array' });
     const ws = wb.Sheets[wb.SheetNames[0]];
@@ -738,16 +763,31 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const iId = idxCol(ALIAS_ID_VENTA_ENVIO);
     const iPrecio = idxCol(ALIAS_PRECIO_ENVIO);
     if (iId === -1 || iPrecio === -1) throw new Error('Al archivo de envíos le faltan columnas ("ID venta ML" / "Precio").');
+    // Opcionales: si están, permiten cruzar por dirección cuando no hay Cobros para
+    // "traducir" pedidos de varios productos (ver aplicarFlexDirecto).
+    const iDireccion = encabezado.findIndex(h => normalizarDireccion(h) === 'direccion');
+    const iFechaVenta = encabezado.findIndex(h => normalizarDireccion(h) === 'fecha venta');
 
-    const mapaEnvios = {};
+    const porId = {};
+    const porDireccion = {};
     for (let i = filaHeader + 1; i < aoa.length; i++){
       const fila = aoa[i] || [];
       const idRaw = fila[iId];
       if (esVacio(idRaw)) continue; // fila de totales u otra sin venta asociada
       const id = String(Math.trunc(Number(idRaw)) === Number(idRaw) ? Math.trunc(Number(idRaw)) : idRaw);
-      mapaEnvios[id] = (parseFloat(fila[iPrecio]) || 0);
+      const precio = parseFloat(fila[iPrecio]) || 0;
+      porId[id] = precio;
+
+      if (iDireccion !== -1){
+        const dirNorm = normalizarDireccion(fila[iDireccion]);
+        if (dirNorm){
+          const fechaMs = iFechaVenta !== -1 ? parsearFechaCorta(fila[iFechaVenta]) : null;
+          if (!porDireccion[dirNorm]) porDireccion[dirNorm] = [];
+          porDireccion[dirNorm].push({ precio, fechaMs });
+        }
+      }
     }
-    return mapaEnvios;
+    return { porId, porDireccion };
   }
 
   // Promedio de los costos de flex reales (>0) de un mapa de envíos — para usar como
@@ -951,10 +991,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       // antes que mostrar dos totales que no cierran entre sí.
       let flexDescontado = 0;
       if (mapaEnvios && idVenta && !ventasFlexYaDescontado.has(idVenta)){
-        const claveEnvio = (m.orderId && mapaEnvios[m.orderId] !== undefined) ? m.orderId
-          : (mapaEnvios[idVenta] !== undefined) ? idVenta : null;
+        const claveEnvio = (m.orderId && mapaEnvios.porId[m.orderId] !== undefined) ? m.orderId
+          : (mapaEnvios.porId[idVenta] !== undefined) ? idVenta : null;
         if (claveEnvio){
-          flexDescontado = mapaEnvios[claveEnvio];
+          flexDescontado = mapaEnvios.porId[claveEnvio];
           if (flexDescontado === 0 && promedioFlexReal > 0){
             flexDescontado = promedioFlexReal;
             flexPromedioUsadoCount += 1;
@@ -1033,25 +1073,49 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return isFinite(max) ? new Date(max) : null;
   }
 
-  // Sin el archivo de Cobros no hay forma de "traducir" pedidos de varios productos (el
-  // truco de cruzar por SKU+fecha necesita el order_id individual que solo trae Cobros) —
-  // se cruza directo por # de venta, que cubre los pedidos de un solo producto. Para el
-  // resto de las ventas que sí usaron flex (tienen "Descuentos y bonificaciones" cargado)
-  // pero no se pudieron identificar directo, se completa con el promedio real del mes —
-  // mismo criterio que ya usamos para el caso $0 con Cobros. Sin esto, esas ventas quedan
-  // con más rentabilidad de la real, porque no se les descuenta el envío pagado por fuera.
+  // Sin el archivo de Cobros no hay forma de "traducir" pedidos de varios productos por
+  // SKU (ese truco necesita el order_id individual que solo trae Cobros) — pero sí se puede
+  // cruzar por # de venta directo, y como respaldo, por DIRECCIÓN (la calle del domicilio
+  // en Ventas contra la dirección del envío en Envíos) — cubre muchos más casos que el # de
+  // venta solo. Para el resto de las ventas que sí usaron flex pero no se pudieron
+  // identificar de ninguna manera, se completa con el promedio real del mes — mismo
+  // criterio que ya usamos para el caso $0 con Cobros. Sin esto, esas ventas quedan con
+  // más rentabilidad de la real, porque no se les descuenta el envío pagado por fuera.
   function aplicarFlexDirecto(cuentas, mapaEnvios, promedioFlexReal){
     const flexPorVenta = {};
     const ventasFlexPromedio = [];
     let promedioUsados = 0;
+    let porDireccionUsados = 0;
     for (const c of cuentas){
       for (const f of c.filas){
         if (f['Descuentos y bonificaciones'] == null) continue; // esta venta no usó flex
         const idVenta = f['# de venta'];
         let costo;
         let usoPromedio = false;
-        if (mapaEnvios[idVenta] !== undefined && mapaEnvios[idVenta] > 0){
-          costo = mapaEnvios[idVenta];
+
+        if (mapaEnvios.porId[idVenta] !== undefined && mapaEnvios.porId[idVenta] > 0){
+          costo = mapaEnvios.porId[idVenta];
+        } else if (f['_calleNormalizada'] && mapaEnvios.porDireccion[f['_calleNormalizada']]){
+          const candidatos = mapaEnvios.porDireccion[f['_calleNormalizada']];
+          let mejor = candidatos[0];
+          if (candidatos.length > 1){
+            const fechaVenta = parsearFechaVenta(f['Fecha de venta']);
+            let mejorDiff = Infinity;
+            for (const cand of candidatos){
+              if (cand.fechaMs == null || fechaVenta == null) continue;
+              const diff = Math.abs(cand.fechaMs - fechaVenta);
+              if (diff < mejorDiff){ mejorDiff = diff; mejor = cand; }
+            }
+          }
+          if (mejor.precio > 0){
+            costo = mejor.precio;
+            porDireccionUsados += 1;
+          } else if (promedioFlexReal > 0){
+            costo = promedioFlexReal;
+            usoPromedio = true;
+          } else {
+            continue;
+          }
         } else if (promedioFlexReal > 0){
           costo = promedioFlexReal;
           usoPromedio = true;
@@ -1067,7 +1131,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     let aplicados = 0;
     for (const c of cuentas) aplicados += aplicarFlexReal(c.filas, flexPorVenta);
-    return { aplicados, promedioUsados, totalDescontado: Object.values(flexPorVenta).reduce((s, v) => s + v, 0), ventasFlexPromedio };
+    return { aplicados, promedioUsados, porDireccionUsados, totalDescontado: Object.values(flexPorVenta).reduce((s, v) => s + v, 0), ventasFlexPromedio };
   }
 
   function combinarVentasYCostos(filas, desglosePresentes, costos, personaSeleccionada){
@@ -1096,7 +1160,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const resumenCompleto = Object.entries(grupos).map(([producto, { ventas, costo }]) => {
       const unidades = ventas.reduce((s, v) => s + v["Unidades"], 0);
       const totalSum = ventas.reduce((s, v) => s + v["Total (ARS)"], 0);
-      const ventaProm = ventas.reduce((s, v) => s + v["Venta por unidad"], 0) / ventas.length;
+      const ingresosSum = ventas.reduce((s, v) => s + v["Ingresos por productos (ARS)"], 0);
+      // Promedio ponderado por unidad real — una venta de 3 unidades pesa 3, no 1 (antes
+      // se dividía por cantidad de VENTAS, no de unidades, e inflaba el promedio de
+      // cualquier producto con ventas de más de una unidad).
+      const ventaProm = unidades ? ingresosSum / unidades : null;
       const ingresoNeto = totalSum / unidades;
       const gananciaNeta = costo == null ? null : ingresoNeto - costo;
       // % Ganancia = Ganancia neta ÷ Venta promedio (mismo criterio que la fórmula real
@@ -1229,9 +1297,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const porFuente = fuentes.map(f => {
       const rango = (campo) => `'${f.nombreHoja}'!$${colLetter(f.col[campo])}$2:$${colLetter(f.col[campo])}$${f.n + 1}`;
       const rProducto = rango('Producto'), rUnidades = rango('Unidades'),
-            rVentaUnidad = rango('Venta por unidad'), rTotal = rango('Total (ARS)'), rEstado = rango('Estado');
+            rIngresos = rango('Ingresos por productos (ARS)'), rTotal = rango('Total (ARS)'), rEstado = rango('Estado');
       const noExcluida = `${rEstado},"<>*cancelad*",${rEstado},"<>*devoluc*",${rEstado},"<>*devuelto*"`;
-      return { rProducto, rUnidades, rVentaUnidad, rTotal, noExcluida };
+      return { rProducto, rUnidades, rIngresos, rTotal, noExcluida };
     });
 
     const suma = (partes) => partes.length === 1 ? partes[0] : `(${partes.join('+')})`;
@@ -1243,12 +1311,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const r = filaInicio + 1 + i;
       const cantVentasPartes = porFuente.map(pf => `COUNTIFS(${pf.rProducto},A${r},${pf.noExcluida})`);
       const unidadesPartes = porFuente.map(pf => `SUMIFS(${pf.rUnidades},${pf.rProducto},A${r},${pf.noExcluida})`);
-      const sumaVentaUnidadPartes = porFuente.map(pf => `SUMIFS(${pf.rVentaUnidad},${pf.rProducto},A${r},${pf.noExcluida})`);
+      const sumaIngresosPartes = porFuente.map(pf => `SUMIFS(${pf.rIngresos},${pf.rProducto},A${r},${pf.noExcluida})`);
       const sumaTotalPartes = porFuente.map(pf => `SUMIFS(${pf.rTotal},${pf.rProducto},A${r},${pf.noExcluida})`);
 
       const cantVentasF = suma(cantVentasPartes);
       const unidadesF = suma(unidadesPartes);
-      const ventaPromedioF = `IFERROR(${suma(sumaVentaUnidadPartes)}/${cantVentasF},"")`;
+      // Promedio ponderado por unidad real (no por cantidad de ventas) — una venta de 3
+      // unidades pesa 3, no 1, así no se infla el promedio de productos con ventas múltiples.
+      const ventaPromedioF = `IFERROR(${suma(sumaIngresosPartes)}/${unidadesF},"")`;
       const ingresoNetoF = `IFERROR(${suma(sumaTotalPartes)}/${unidadesF},"")`;
 
       const valores = {
@@ -2290,14 +2360,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
       // Envíos: se lee siempre que esté cargado, tenga o no Cobros también cargado.
       // Con Cobros: se usa para el cruce completo por SKU+fecha (mejor cobertura).
-      // Sin Cobros: se cruza directo por # de venta (cubre pedidos de un solo producto).
+      // Sin Cobros: se cruza directo por # de venta y por dirección (cubre pedidos de un
+      // solo producto y buena parte de los de varios, respectivamente).
       let mapaEnvios = null;
       if (zonas.envios.archivo){
         const bufEnvios = await leerComoArrayBuffer(zonas.envios.archivo);
         mapaEnvios = leerEnvios(bufEnvios);
         if (zonas.envios2.archivo){
           const bufEnvios2 = await leerComoArrayBuffer(zonas.envios2.archivo);
-          Object.assign(mapaEnvios, leerEnvios(bufEnvios2));
+          const r2 = leerEnvios(bufEnvios2);
+          Object.assign(mapaEnvios.porId, r2.porId);
+          for (const k in r2.porDireccion){
+            if (!mapaEnvios.porDireccion[k]) mapaEnvios.porDireccion[k] = [];
+            mapaEnvios.porDireccion[k].push(...r2.porDireccion[k]);
+          }
         }
       }
 
@@ -2345,7 +2421,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             ? new Date(ultimaVenta.getFullYear(), ultimaVenta.getMonth(), ultimaVenta.getDate(), 23, 59, 59)
             : new Date();
         }
-        const promedioFlexReal = mapaEnvios ? promedioFlexPositivo(mapaEnvios) : 0;
+        const promedioFlexReal = mapaEnvios ? promedioFlexPositivo(mapaEnvios.porId) : 0;
         const cruce = cruzarMovimientosPago(movimientos, cashbacks, mapaSku, mapaEnvios, promedioFlexReal, fechaCorte, op.dueño, mapaVentasPorId, todasLasVentas);
         existencias = { cruce, fechaCorte, dueño: op.dueño };
         modo = mapaEnvios ? 'Meli + MercadoPago + Flex real' : 'Meli + MercadoPago';
@@ -2363,10 +2439,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         // # de venta, que cubre los pedidos de un solo producto. Al resto de las ventas
         // con flex que no se pudieron identificar directo, se les completa con el
         // promedio real del mes — así ninguna queda con más rentabilidad de la real.
-        const promedioFlexReal = promedioFlexPositivo(mapaEnvios);
+        const promedioFlexReal = promedioFlexPositivo(mapaEnvios.porId);
         const resultado = aplicarFlexDirecto(cuentas, mapaEnvios, promedioFlexReal);
         ventasFlexPromedioDirecto = resultado.ventasFlexPromedio;
-        modo = `Meli + Flex real directo (${resultado.aplicados} venta/s con flex, ${resultado.promedioUsados} completadas con el promedio)`;
+        modo = `Meli + Flex real directo (${resultado.aplicados} venta/s con flex: ${resultado.aplicados - resultado.porDireccionUsados - resultado.promedioUsados} por # de venta, ${resultado.porDireccionUsados} por dirección, ${resultado.promedioUsados} con el promedio)`;
       }
 
       let unificado = null;
