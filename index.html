@@ -259,37 +259,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         </div>
       </div>
 
-      <div class="zone step-hidden" id="zona-envios" style="margin-top:14px;">
-        <p class="zone-label" id="zone-label-envios"><span class="num">+</span> Envíos (opcional)</p>
-        <p class="zone-hint" style="margin-bottom:8px;">Sumá el listado de envíos de tu logística para descontar el costo real de flex de cada venta. Cubrí un rango de fechas un poco más amplio que tus ventas, por si algún envío se procesa unos días después. Si no lo subís, te vamos a pedir un costo de flex fijo para aplicar a esas ventas.</p>
-        <div class="dropzone" id="dz-envios" tabindex="0" role="button" aria-label="Elegir o arrastrar el listado de envíos">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <p class="dz-title" id="dz-title-envios">Arrastrá el listado de envíos</p>
-          <p class="dz-sub" id="dz-sub-envios">o hacé clic para elegirlo · .xlsx/.xls</p>
-        </div>
-        <input type="file" id="input-envios" accept=".xlsx,.xls">
-        <div class="file-chip step-hidden" id="chip-envios">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.4"/><path d="M14 2v5h5" stroke="currentColor" stroke-width="1.4"/></svg>
-          <span class="name" id="name-envios">archivo.xlsx</span>
-          <button id="btn-quitar-envios" aria-label="Quitar archivo" type="button">&times;</button>
-        </div>
-
-        <div class="zone step-hidden" id="zona-envios2" style="margin-top:12px;">
-          <p class="zone-label" id="zone-label-envios2"><span class="num">+</span> Envíos de la segunda cuenta</p>
-          <div class="dropzone" id="dz-envios2" tabindex="0" role="button" aria-label="Elegir o arrastrar el listado de envíos de la segunda cuenta">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <p class="dz-title" id="dz-title-envios2">Arrastrá el listado de la 2da cuenta</p>
-            <p class="dz-sub" id="dz-sub-envios2">o hacé clic para elegirlo · .xlsx/.xls</p>
-          </div>
-          <input type="file" id="input-envios2" accept=".xlsx,.xls">
-          <div class="file-chip step-hidden" id="chip-envios2">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.4"/><path d="M14 2v5h5" stroke="currentColor" stroke-width="1.4"/></svg>
-            <span class="name" id="name-envios2">archivo.xlsx</span>
-            <button id="btn-quitar-envios2" aria-label="Quitar archivo" type="button">&times;</button>
-          </div>
-        </div>
-      </div>
-
       <div class="zone step-hidden" id="zona-settlement" style="margin-top:14px;">
         <p class="zone-label" id="zone-label-settlement"><span class="num">+</span> Cobros (opcional)</p>
         <p class="zone-hint" style="margin-bottom:8px;">Sumá el reporte "Cobros" de MercadoPago para agregar la hoja Existencias (plata cobrada y a cobrar, por vendedor).</p>
@@ -363,6 +332,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           <strong>⚠ Productos sin costo cargado (ganancia vacía):</strong>
           <ul id="lista-sin-costo"></ul>
         </div>
+        <div id="warn-sin-cp" class="step-hidden" style="margin-top:10px;">
+          <strong>⚠ Códigos postales con flex sin tarifa cargada (se completaron con el promedio) — agregalos a tu tarifario por zona:</strong>
+          <ul id="lista-sin-cp"></ul>
+        </div>
       </div>
 
       <br>
@@ -376,7 +349,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 <div class="modal-backdrop step-hidden" id="modal-flex-manual">
   <div class="modal-box">
     <h3>¿Cuánto te descuenta el flex por envío?</h3>
-    <p class="hint">No subiste el listado de envíos, así que no tenemos el costo real de flex por venta. Ingresá un monto fijo y lo aplicamos a cada venta con flex — o continuá sin descontar nada.</p>
+    <p class="hint">No tenemos un tarifario de flex por zona cargado, así que no sabemos el costo real por venta. Ingresá un monto fijo y lo aplicamos a cada venta con flex — o continuá sin descontar nada.</p>
     <input type="number" id="input-flex-manual" placeholder="Ej: 8000" min="0" step="1">
     <div class="modal-actions">
       <button type="button" class="btn-omitir" id="btn-flex-omitir">Continuar sin descontar</button>
@@ -495,6 +468,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // que replica en vivo la privada mediante IMPORTRANGE.
   // Si se recrea esa spreadsheet en el futuro, alcanza con actualizar este ID.
   const GOOGLE_SHEET_ID = '1kjkSXWw3WixShdlS3aGVRCbOhPOwm0Ko8JBSFN-maZ8';
+  // Hoja aparte con el tarifario de flex por zona/código postal (no hace falta combinarla
+  // con la principal) — debe estar compartida como "Cualquiera con el enlace puede ver".
+  const GOOGLE_SHEET_ID_LOGISTICA = '1-NO2pNfp-NP8TClXvjfDXukPoic4p9r2';
 
   function leerVentas(arrayBuffer){
     const wb = XLSX.read(arrayBuffer, { type: 'array' });
@@ -526,6 +502,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     // Opcional: para cruzar por dirección con el listado de envíos cuando no hay Cobros
     // (ver aplicarFlexDirecto) — no se muestra en la hoja Ventas final.
     const idxDomicilio = indiceDe('Domicilio');
+    const idxCP = indiceDe('Código postal');
 
     const filas = [];
     for (let i = filaHeader + 1; i < aoa.length; i++){
@@ -537,6 +514,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const totalOriginal = parseFloat(fila[indices["Total (ARS)"]]) || 0;
       const ingresos = parseFloat(fila[indices["Ingresos por productos (ARS)"]]) || 0;
       const unidades = parseFloat(fila[indices["Unidades"]]) || 0;
+      const cpRaw = idxCP !== -1 ? fila[idxCP] : null;
+      const cpParseado = esVacio(cpRaw) ? null : parseInt(cpRaw, 10);
 
       // El costo flex ya no se asume fijo: queda vacío acá y se completa después,
       // por venta, si se cargó el listado de envíos de la logística (ver aplicarFlexReal).
@@ -547,6 +526,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         "Motivo": idxMotivo !== -1 ? fila[idxMotivo] : '',
         "SKU": idxSku !== -1 ? fila[idxSku] : '',
         "_calleNormalizada": idxDomicilio !== -1 ? normalizarDireccion(calleDeDomicilio(fila[idxDomicilio])) : null,
+        "_codigoPostal": (cpParseado != null && !isNaN(cpParseado)) ? String(cpParseado) : null,
         "Costo flex": null,
         "Unidades": unidades,
         "Ingresos por productos (ARS)": ingresos,
@@ -648,6 +628,29 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // Detecta columnas "cuenta principal" (C1) y "cuenta secundaria" (C2) por el final del
   // título, y las categoriza — así no hace falta tocar el código si mañana agregan una
   // categoría de gasto nueva.
+  // Parsea una hoja de zona de logística (Barrio/Localidad, Partido, Código Postal, Costo
+  // Flex) en un mapa código_postal -> costo. Detecta las columnas por título, no por
+  // posición, así tolera que el usuario reordene o agregue columnas en su Google Sheet.
+  function logisticaZonaDesdeFilas(filas){
+    if (!filas || filas.length === 0) return null;
+    const encabezado = filas[0].map(c => String(c).trim());
+    const idxCP = encabezado.findIndex(h => normalizarDireccion(h) === 'codigo postal');
+    const idxCosto = encabezado.findIndex(h => normalizar(h).includes('costo'));
+    if (idxCP === -1 || idxCosto === -1) return null;
+
+    const mapa = {};
+    for (let i = 1; i < filas.length; i++){
+      const fila = filas[i];
+      const cpRaw = fila[idxCP];
+      if (esVacio(cpRaw)) continue;
+      const cp = String(parseInt(cpRaw, 10));
+      if (cp === 'NaN') continue;
+      const costo = parseFloat(fila[idxCosto]);
+      if (!isNaN(costo)) mapa[cp] = costo;
+    }
+    return Object.keys(mapa).length ? mapa : null;
+  }
+
   function gastosGrupalesDesdeFilas(filas){
     if (!filas || filas.length === 0) return null;
     const encabezado = filas[0].map(c => String(c).trim());
@@ -704,7 +707,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       gastosGrupales = gastosGrupalesDesdeFilas(tablaAAOA(tableGastos));
     } catch (e) { /* sin esta hoja, se sigue sin el dato */ }
 
-    return { mapping, titulares, vendedores, gastosGrupales };
+    // Tarifario de flex por código postal: opcional — vive en una hoja de Google aparte
+    // (no hace falta combinarla con la principal). Si no está o no es accesible, se sigue
+    // usando Envíos (real) y el promedio como respaldo, igual que antes.
+    let logisticaPorCP = null;
+    const NOMBRES_HOJAS_LOGISTICA = ['Caba', 'Zona Oeste', 'Zona Norte', 'Zona Sur'];
+    for (const nombreHoja of NOMBRES_HOJAS_LOGISTICA){
+      try {
+        const tableZona = await fetchHojaJSON(GOOGLE_SHEET_ID_LOGISTICA, nombreHoja);
+        const filasZona = tablaAAOA(tableZona);
+        const mapaZona = logisticaZonaDesdeFilas(filasZona);
+        if (mapaZona){
+          if (!logisticaPorCP) logisticaPorCP = {};
+          Object.assign(logisticaPorCP, mapaZona);
+        }
+      } catch (e) { /* esta hoja de zona no está o no es accesible — se sigue con las demás */ }
+    }
+
+    return { mapping, titulares, vendedores, gastosGrupales, logisticaPorCP };
   }
 
   const PALABRAS_EXCLUSION = ['cancelad', 'devoluc', 'devuelto'];
@@ -915,7 +935,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   // mapaSku: { 'sku_normalizado': { producto, dueño, ventas: [{ idVenta, fechaMs, estado }, ...] } }
-  function cruzarMovimientosPago(movimientos, cashbacks, mapaSku, mapaEnvios, promedioFlexReal, fechaCorte, dueñoPropio, mapaVentasPorId, todasLasVentas){
+  function cruzarMovimientosPago(movimientos, cashbacks, mapaSku, mapaEnvios, logisticaPorCP, promedioFlexReal, fechaCorte, dueñoPropio, mapaVentasPorId, todasLasVentas){
     const identificados = [];
     let sinIdentificarMonto = 0;
     let sinIdentificarCount = 0;
@@ -924,11 +944,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     let flexDescontadoTotal = 0;
     let flexDescontadoCount = 0;
     let flexPromedioUsadoCount = 0;
+    let flexPorZonaCount = 0;
+    const cpsSinTarifa = new Set(); // códigos postales de ventas con flex que no están en el tarifario
     const flexPorVenta = {}; // '# de venta' -> costo real de flex (para aplicar también en la hoja Ventas)
     const ventasFlexYaDescontado = new Set(); // evita restar el flex más de una vez por venta (ej: pagos en cuotas)
 
     for (const m of movimientos){
-      let producto = null, dueño = null, idVenta = '', confirmado = false, estadoVenta = '';
+      let producto = null, dueño = null, idVenta = '', confirmado = false, estadoVenta = '', codigoPostal = null;
 
       const key = normalizar(m.sku);
       const ventaPorSku = key ? mapaSku[key] : null;
@@ -948,6 +970,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             idVenta = mejor.idVenta;
             confirmado = true;
             estadoVenta = mejor.estado || '';
+            codigoPostal = mejor.codigoPostal || null;
           }
         }
       } else if (mapaVentasPorId && m.orderId && mapaVentasPorId[m.orderId]){
@@ -955,6 +978,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         // matchea directo con una de tus ventas conocidas.
         const v = mapaVentasPorId[m.orderId];
         producto = v.producto; dueño = v.dueño; idVenta = m.orderId; confirmado = true; estadoVenta = v.estado || '';
+        codigoPostal = v.codigoPostal || null;
       } else if (todasLasVentas && todasLasVentas.length && m.fechaOrigenMs != null){
         // Tampoco matchea por # de venta directo: se busca por fecha/hora entre TODAS
         // las ventas conocidas (no solo las de un SKU puntual, ya que no hay SKU).
@@ -966,6 +990,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         }
         if (mejor && mejorDiff <= TOLERANCIA_CONFIRMACION_MS){
           producto = mejor.producto; dueño = mejor.dueño; idVenta = mejor.idVenta; confirmado = true; estadoVenta = mejor.estado || '';
+          codigoPostal = mejor.codigoPostal || null;
         }
       }
 
@@ -983,22 +1008,32 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         continue;
       }
 
-      // Descontar el costo real de flex de esta venta puntual, si viene en el archivo de
-      // envíos — SOLO cuando se pudo confirmar con certeza a qué venta corresponde. Así lo
+      // Descontar el costo real de flex de esta venta puntual — primero por el archivo de
+      // envíos (si está), después por el tarifario de zona/código postal, y recién ahí el
+      // promedio — SOLO cuando se pudo confirmar con certeza a qué venta corresponde. Así lo
       // que se resta acá es exactamente lo mismo que se puede escribir en la hoja Ventas, y
       // "Total descontado" (Existencias) siempre coincide con "Total de flex pagado"
       // (Análisis general). Si no se puede confirmar la venta, se prefiere no descontar nada
       // antes que mostrar dos totales que no cierran entre sí.
       let flexDescontado = 0;
-      if (mapaEnvios && idVenta && !ventasFlexYaDescontado.has(idVenta)){
-        const claveEnvio = (m.orderId && mapaEnvios.porId[m.orderId] !== undefined) ? m.orderId
-          : (mapaEnvios.porId[idVenta] !== undefined) ? idVenta : null;
-        if (claveEnvio){
-          flexDescontado = mapaEnvios.porId[claveEnvio];
-          if (flexDescontado === 0 && promedioFlexReal > 0){
-            flexDescontado = promedioFlexReal;
-            flexPromedioUsadoCount += 1;
-          }
+      if (idVenta && !ventasFlexYaDescontado.has(idVenta)){
+        let costo = null;
+        if (mapaEnvios){
+          const claveEnvio = (m.orderId && mapaEnvios.porId[m.orderId] !== undefined) ? m.orderId
+            : (mapaEnvios.porId[idVenta] !== undefined) ? idVenta : null;
+          if (claveEnvio && mapaEnvios.porId[claveEnvio] > 0) costo = mapaEnvios.porId[claveEnvio];
+        }
+        if (costo == null && logisticaPorCP && codigoPostal && logisticaPorCP[codigoPostal] !== undefined){
+          costo = logisticaPorCP[codigoPostal];
+          flexPorZonaCount += 1;
+        }
+        if (costo == null && codigoPostal) cpsSinTarifa.add(codigoPostal);
+        if (costo == null && promedioFlexReal > 0){
+          costo = promedioFlexReal;
+          flexPromedioUsadoCount += 1;
+        }
+        if (costo != null){
+          flexDescontado = costo;
           flexDescontadoTotal += flexDescontado;
           flexDescontadoCount += 1;
           ventasFlexYaDescontado.add(idVenta);
@@ -1027,7 +1062,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         idVenta: '', confirmado: false, flexDescontado: 0,
       });
     }
-    return { identificados, sinIdentificarMonto, sinIdentificarCount, canceladaMonto, canceladaCount, flexDescontadoTotal, flexDescontadoCount, flexPromedioUsadoCount, flexPorVenta, promedioFlexReal };
+    return { identificados, sinIdentificarMonto, sinIdentificarCount, canceladaMonto, canceladaCount, flexDescontadoTotal, flexDescontadoCount, flexPromedioUsadoCount, flexPorZonaCount, cpsSinTarifa, flexPorVenta, promedioFlexReal };
   }
 
   // Aplica el costo real de flex (ya determinado por venta, cruzando SKU+fecha contra MercadoPago
@@ -1074,28 +1109,27 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   // Sin el archivo de Cobros no hay forma de "traducir" pedidos de varios productos por
-  // SKU (ese truco necesita el order_id individual que solo trae Cobros) — pero sí se puede
-  // cruzar por # de venta directo, y como respaldo, por DIRECCIÓN (la calle del domicilio
-  // en Ventas contra la dirección del envío en Envíos) — cubre muchos más casos que el # de
-  // venta solo. Para el resto de las ventas que sí usaron flex pero no se pudieron
-  // identificar de ninguna manera, se completa con el promedio real del mes — mismo
-  // criterio que ya usamos para el caso $0 con Cobros. Sin esto, esas ventas quedan con
-  // más rentabilidad de la real, porque no se les descuenta el envío pagado por fuera.
-  function aplicarFlexDirecto(cuentas, mapaEnvios, promedioFlexReal){
+  // SKU (ese truco necesita el order_id individual que solo trae Cobros). Se prueba, en
+  // orden de confianza: # de venta directo y dirección (real, si hay Envíos), tarifario
+  // por código postal (estimado pero confiable, si está cargado en el Google Sheet), y
+  // recién ahí el promedio del mes como último recurso. Sin esto, las ventas que no se
+  // pueden identificar quedan con más rentabilidad de la real, porque no se les descuenta
+  // el envío pagado por fuera.
+  function aplicarFlexDirecto(cuentas, mapaEnvios, logisticaPorCP, promedioFlexReal){
     const flexPorVenta = {};
     const ventasFlexPromedio = [];
-    let promedioUsados = 0;
-    let porDireccionUsados = 0;
+    const cpsSinTarifa = new Set();
+    let promedioUsados = 0, porIdUsados = 0, porDireccionUsados = 0, porZonaUsados = 0;
     for (const c of cuentas){
       for (const f of c.filas){
         if (f['Descuentos y bonificaciones'] == null) continue; // esta venta no usó flex
         const idVenta = f['# de venta'];
-        let costo;
-        let usoPromedio = false;
+        let costo = null;
 
-        if (mapaEnvios.porId[idVenta] !== undefined && mapaEnvios.porId[idVenta] > 0){
+        if (mapaEnvios && mapaEnvios.porId[idVenta] !== undefined && mapaEnvios.porId[idVenta] > 0){
           costo = mapaEnvios.porId[idVenta];
-        } else if (f['_calleNormalizada'] && mapaEnvios.porDireccion[f['_calleNormalizada']]){
+          porIdUsados += 1;
+        } else if (mapaEnvios && f['_calleNormalizada'] && mapaEnvios.porDireccion[f['_calleNormalizada']]){
           const candidatos = mapaEnvios.porDireccion[f['_calleNormalizada']];
           let mejor = candidatos[0];
           if (candidatos.length > 1){
@@ -1107,21 +1141,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
               if (diff < mejorDiff){ mejorDiff = diff; mejor = cand; }
             }
           }
-          if (mejor.precio > 0){
-            costo = mejor.precio;
-            porDireccionUsados += 1;
-          } else if (promedioFlexReal > 0){
-            costo = promedioFlexReal;
-            usoPromedio = true;
-          } else {
-            continue;
-          }
-        } else if (promedioFlexReal > 0){
-          costo = promedioFlexReal;
-          usoPromedio = true;
-        } else {
-          continue; // no hay ni el real ni un promedio calculable (no debería pasar si mapaEnvios no está vacío)
+          if (mejor.precio > 0){ costo = mejor.precio; porDireccionUsados += 1; }
         }
+
+        if (costo == null && logisticaPorCP && f['_codigoPostal'] && logisticaPorCP[f['_codigoPostal']] !== undefined){
+          costo = logisticaPorCP[f['_codigoPostal']];
+          porZonaUsados += 1;
+        }
+        if (costo == null && f['_codigoPostal']) cpsSinTarifa.add(f['_codigoPostal']);
+
+        let usoPromedio = false;
+        if (costo == null){
+          if (promedioFlexReal > 0){ costo = promedioFlexReal; usoPromedio = true; }
+          else continue; // no hay ninguna fuente de costo para esta venta
+        }
+
         if (usoPromedio){
           promedioUsados += 1;
           ventasFlexPromedio.push({ sku: f.SKU, producto: f.Producto, fechaLiberacion: f['Fecha de venta'], flexDescontado: costo });
@@ -1131,7 +1165,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     let aplicados = 0;
     for (const c of cuentas) aplicados += aplicarFlexReal(c.filas, flexPorVenta);
-    return { aplicados, promedioUsados, porDireccionUsados, totalDescontado: Object.values(flexPorVenta).reduce((s, v) => s + v, 0), ventasFlexPromedio };
+    return { aplicados, promedioUsados, porIdUsados, porDireccionUsados, porZonaUsados, cpsSinTarifa,
+      totalDescontado: Object.values(flexPorVenta).reduce((s, v) => s + v, 0), ventasFlexPromedio };
   }
 
   function combinarVentasYCostos(filas, desglosePresentes, costos, personaSeleccionada){
@@ -2082,14 +2117,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       defaultTitle: 'Arrastrá el reporte de MercadoPago', defaultSub: 'o hacé clic para elegirlo · .xlsx',
       archivo: null,
     },
-    envios: {
-      dz: document.getElementById('dz-envios'), input: document.getElementById('input-envios'),
-      chip: document.getElementById('chip-envios'), name: document.getElementById('name-envios'),
-      title: document.getElementById('dz-title-envios'), sub: document.getElementById('dz-sub-envios'),
-      btnQuitar: document.getElementById('btn-quitar-envios'),
-      defaultTitle: 'Arrastrá el listado de envíos', defaultSub: 'o hacé clic para elegirlo · .xlsx/.xls',
-      archivo: null,
-    },
     settlement2: {
       dz: document.getElementById('dz-settlement2'), input: document.getElementById('input-settlement2'),
       chip: document.getElementById('chip-settlement2'), name: document.getElementById('name-settlement2'),
@@ -2098,27 +2125,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       defaultTitle: 'Arrastrá el reporte de la 2da cuenta', defaultSub: 'o hacé clic para elegirlo · .xlsx',
       archivo: null,
     },
-    envios2: {
-      dz: document.getElementById('dz-envios2'), input: document.getElementById('input-envios2'),
-      chip: document.getElementById('chip-envios2'), name: document.getElementById('name-envios2'),
-      title: document.getElementById('dz-title-envios2'), sub: document.getElementById('dz-sub-envios2'),
-      btnQuitar: document.getElementById('btn-quitar-envios2'),
-      defaultTitle: 'Arrastrá el listado de la 2da cuenta', defaultSub: 'o hacé clic para elegirlo · .xlsx/.xls',
-      archivo: null,
-    },
   };
   const zonaVentas1 = document.getElementById('zona-ventas1');
   const zonaVentas2 = document.getElementById('zona-ventas2');
-  const zonaEnvios = document.getElementById('zona-envios');
   const zonaSettlement = document.getElementById('zona-settlement');
   const zonaSettlement2 = document.getElementById('zona-settlement2');
-  const zonaEnvios2 = document.getElementById('zona-envios2');
   const zoneLabel1 = document.getElementById('zone-label-1');
   const zoneLabel2 = document.getElementById('zone-label-2');
-  const zoneLabelEnvios = document.getElementById('zone-label-envios');
   const zoneLabelSettlement = document.getElementById('zone-label-settlement');
   const zoneLabelSettlement2 = document.getElementById('zone-label-settlement2');
-  const zoneLabelEnvios2 = document.getElementById('zone-label-envios2');
   const campoFechaCorte = document.getElementById('campo-fecha-corte');
   const fechaCorteInput = document.getElementById('fecha-corte');
 
@@ -2139,24 +2154,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!op){
       zonaVentas1.classList.add('step-hidden');
       zonaVentas2.classList.add('step-hidden');
-      zonaEnvios.classList.add('step-hidden');
       zonaSettlement.classList.add('step-hidden');
       zonaSettlement2.classList.add('step-hidden');
-      zonaEnvios2.classList.add('step-hidden');
       campoFechaCorte.classList.add('step-hidden');
       return;
     }
     zonaVentas1.classList.remove('step-hidden');
-    zonaEnvios.classList.remove('step-hidden');
     zonaSettlement.classList.remove('step-hidden');
     campoFechaCorte.classList.remove('step-hidden');
     const nombreCta1 = op.cuentas[0];
     zoneLabel1.innerHTML = `<span class="num">1</span> Ventas de ${nombreCta1}`;
     zonas.v1.defaultTitle = `Arrastrá el Excel de ${nombreCta1}`;
     if (!zonas.v1.archivo){ zonas.v1.title.textContent = zonas.v1.defaultTitle; }
-    zoneLabelEnvios.innerHTML = `<span class="num">+</span> Envíos de ${nombreCta1} (opcional)`;
-    zonas.envios.defaultTitle = `Arrastrá el listado de ${nombreCta1}`;
-    if (!zonas.envios.archivo){ zonas.envios.title.textContent = zonas.envios.defaultTitle; }
 
     if (op.cuentas.length > 1){
       const nombreCta2 = op.cuentas[1];
@@ -2167,21 +2176,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
       zoneLabelSettlement.innerHTML = `<span class="num">+</span> Cobros de ${nombreCta1} (opcional)`;
       zonaSettlement2.classList.remove('step-hidden');
-      zonaEnvios2.classList.remove('step-hidden');
       zoneLabelSettlement2.innerHTML = `<span class="num">+</span> Cobros de ${nombreCta2} (opcional)`;
-      zoneLabelEnvios2.innerHTML = `<span class="num">+</span> Envíos de ${nombreCta2} (opcional)`;
       zonas.settlement2.defaultTitle = `Arrastrá el reporte de ${nombreCta2}`;
-      zonas.envios2.defaultTitle = `Arrastrá el listado de ${nombreCta2}`;
       if (!zonas.settlement2.archivo){ zonas.settlement2.title.textContent = zonas.settlement2.defaultTitle; }
-      if (!zonas.envios2.archivo){ zonas.envios2.title.textContent = zonas.envios2.defaultTitle; }
     } else {
       zonaVentas2.classList.add('step-hidden');
       limpiarArchivo('v2');
       zoneLabelSettlement.innerHTML = `<span class="num">+</span> Cobros (opcional)`;
       zonaSettlement2.classList.add('step-hidden');
-      zonaEnvios2.classList.add('step-hidden');
       limpiarArchivo('settlement2');
-      limpiarArchivo('envios2');
     }
   }
 
@@ -2194,8 +2197,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const warnBox = document.getElementById('warn-box');
   const warnSinMapeo = document.getElementById('warn-sin-mapeo');
   const warnSinCosto = document.getElementById('warn-sin-costo');
+  const warnSinCp = document.getElementById('warn-sin-cp');
   const listaSinMapeo = document.getElementById('lista-sin-mapeo');
   const listaSinCosto = document.getElementById('lista-sin-costo');
+  const listaSinCp = document.getElementById('lista-sin-cp');
   const resetBtn = document.getElementById('reset-btn');
   const statusConexion = document.getElementById('status-conexion');
   const statusTexto = document.getElementById('status-texto');
@@ -2345,10 +2350,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         });
       }
 
-      // Flex manual: si hay ventas con flex pero no se cargó el listado de envíos, se le
-      // pregunta al usuario un monto fijo para aplicar a esas ventas (en vez de dejarlas sin
-      // costo de flex descontado).
-      if (!zonas.envios.archivo){
+      // Flex manual: si hay ventas con flex pero no está el tarifario por zona/código
+      // postal de tu Google Sheet, se le pregunta al usuario un monto fijo para aplicar a
+      // esas ventas (en vez de dejarlas sin costo de flex descontado).
+      if (!costos.logisticaPorCP){
         const hayFlexIndicado = cuentas.some(c => c.filas.some(f => f['Descuentos y bonificaciones'] != null));
         if (hayFlexIndicado){
           const montoManual = await mostrarModalFlexManual();
@@ -2358,45 +2363,27 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         }
       }
 
-      // Envíos: se lee siempre que esté cargado, tenga o no Cobros también cargado.
-      // Con Cobros: se usa para el cruce completo por SKU+fecha (mejor cobertura).
-      // Sin Cobros: se cruza directo por # de venta y por dirección (cubre pedidos de un
-      // solo producto y buena parte de los de varios, respectivamente).
-      let mapaEnvios = null;
-      if (zonas.envios.archivo){
-        const bufEnvios = await leerComoArrayBuffer(zonas.envios.archivo);
-        mapaEnvios = leerEnvios(bufEnvios);
-        if (zonas.envios2.archivo){
-          const bufEnvios2 = await leerComoArrayBuffer(zonas.envios2.archivo);
-          const r2 = leerEnvios(bufEnvios2);
-          Object.assign(mapaEnvios.porId, r2.porId);
-          for (const k in r2.porDireccion){
-            if (!mapaEnvios.porDireccion[k]) mapaEnvios.porDireccion[k] = [];
-            mapaEnvios.porDireccion[k].push(...r2.porDireccion[k]);
-          }
-        }
-      }
-
       // ---- Existencias (opcional): cruzar el reporte de MercadoPago contra las ventas cargadas, por SKU ----
       // Sin este archivo, "Modo Solo Meli": rentabilidad tal cual la reporta Meli, sin descuento de flex.
       let existencias = null;
       let modo = 'Solo Meli';
+      const cpsSinTarifaTotal = new Set();
       if (zonas.settlement.archivo){
         const mapaSku = {};
-        const mapaVentasPorId = {}; // '# de venta' -> {producto, dueño, estado} — para el fallback sin SKU
-        const todasLasVentas = []; // {idVenta, fechaMs, estado, producto, dueño} — idem, por fecha
+        const mapaVentasPorId = {}; // '# de venta' -> {producto, dueño, estado, codigoPostal} — para el fallback sin SKU
+        const todasLasVentas = []; // {idVenta, fechaMs, estado, producto, dueño, codigoPostal} — idem, por fecha
         for (const c of cuentas){
           for (const f of c.filas){
             if (!f.Producto) continue;
             const dueñoProducto = costos.vendedores[normalizar(f.Producto)] || op.dueño;
-            mapaVentasPorId[f['# de venta']] = { producto: f.Producto, dueño: dueñoProducto, estado: f['Estado'] };
-            todasLasVentas.push({ idVenta: f['# de venta'], fechaMs: parsearFechaVenta(f['Fecha de venta']), estado: f['Estado'], producto: f.Producto, dueño: dueñoProducto });
+            mapaVentasPorId[f['# de venta']] = { producto: f.Producto, dueño: dueñoProducto, estado: f['Estado'], codigoPostal: f['_codigoPostal'] };
+            todasLasVentas.push({ idVenta: f['# de venta'], fechaMs: parsearFechaVenta(f['Fecha de venta']), estado: f['Estado'], producto: f.Producto, dueño: dueñoProducto, codigoPostal: f['_codigoPostal'] });
             if (!esVacio(f.SKU)){
               const key = normalizar(f.SKU);
               if (!mapaSku[key]){
                 mapaSku[key] = { producto: f.Producto, dueño: dueñoProducto, ventas: [] };
               }
-              mapaSku[key].ventas.push({ idVenta: f['# de venta'], fechaMs: parsearFechaVenta(f['Fecha de venta']), estado: f['Estado'] });
+              mapaSku[key].ventas.push({ idVenta: f['# de venta'], fechaMs: parsearFechaVenta(f['Fecha de venta']), estado: f['Estado'], codigoPostal: f['_codigoPostal'] });
             }
           }
         }
@@ -2421,28 +2408,29 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             ? new Date(ultimaVenta.getFullYear(), ultimaVenta.getMonth(), ultimaVenta.getDate(), 23, 59, 59)
             : new Date();
         }
-        const promedioFlexReal = mapaEnvios ? promedioFlexPositivo(mapaEnvios.porId) : 0;
-        const cruce = cruzarMovimientosPago(movimientos, cashbacks, mapaSku, mapaEnvios, promedioFlexReal, fechaCorte, op.dueño, mapaVentasPorId, todasLasVentas);
+        const promedioFlexReal = costos.logisticaPorCP ? promedioFlexPositivo(costos.logisticaPorCP) : 0;
+        const cruce = cruzarMovimientosPago(movimientos, cashbacks, mapaSku, null, costos.logisticaPorCP, promedioFlexReal, fechaCorte, op.dueño, mapaVentasPorId, todasLasVentas);
         existencias = { cruce, fechaCorte, dueño: op.dueño };
-        modo = mapaEnvios ? 'Meli + MercadoPago + Flex real' : 'Meli + MercadoPago';
+        modo = costos.logisticaPorCP ? 'Meli + MercadoPago + Flex por zona' : 'Meli + MercadoPago';
+        if (cruce.cpsSinTarifa) cruce.cpsSinTarifa.forEach(cp => cpsSinTarifaTotal.add(cp));
 
-        // El flex real (si se cargó el listado de envíos) se aplica a las ventas de todas las
-        // cuentas, así la hoja Ventas/Resumen/Analítica también reflejan el costo real y no uno fijo.
+        // El flex (por zona, si está el tarifario) se aplica a las ventas de todas las
+        // cuentas, así la hoja Ventas/Resumen/Analítica también reflejan el costo real.
         if (Object.keys(cruce.flexPorVenta).length > 0){
           for (const c of cuentas) aplicarFlexReal(c.filas, cruce.flexPorVenta);
         }
       }
       let ventasFlexPromedioDirecto = null;
-      if (!zonas.settlement.archivo && mapaEnvios){
-        // Sin Cobros no hay forma de "traducir" pedidos de varios productos (ese cruce
-        // necesita el order_id individual que solo trae Cobros) — se cruza directo por
-        // # de venta, que cubre los pedidos de un solo producto. Al resto de las ventas
-        // con flex que no se pudieron identificar directo, se les completa con el
-        // promedio real del mes — así ninguna queda con más rentabilidad de la real.
-        const promedioFlexReal = promedioFlexPositivo(mapaEnvios.porId);
-        const resultado = aplicarFlexDirecto(cuentas, mapaEnvios, promedioFlexReal);
+      if (!zonas.settlement.archivo && costos.logisticaPorCP){
+        // Sin Cobros no hay forma de "traducir" pedidos de varios productos por SKU (ese
+        // cruce necesita el order_id individual que solo trae Cobros) — se cruza directo
+        // por código postal contra el tarifario por zona, y recién ahí el promedio del
+        // mes — así ninguna venta con flex queda con más rentabilidad de la real.
+        const promedioFlexReal = promedioFlexPositivo(costos.logisticaPorCP);
+        const resultado = aplicarFlexDirecto(cuentas, null, costos.logisticaPorCP, promedioFlexReal);
         ventasFlexPromedioDirecto = resultado.ventasFlexPromedio;
-        modo = `Meli + Flex real directo (${resultado.aplicados} venta/s con flex: ${resultado.aplicados - resultado.porDireccionUsados - resultado.promedioUsados} por # de venta, ${resultado.porDireccionUsados} por dirección, ${resultado.promedioUsados} con el promedio)`;
+        if (resultado.cpsSinTarifa) resultado.cpsSinTarifa.forEach(cp => cpsSinTarifaTotal.add(cp));
+        modo = `Meli + Flex por zona (${resultado.aplicados} venta/s con flex: ${resultado.porZonaUsados} por zona/CP, ${resultado.promedioUsados} con el promedio)`;
       }
 
       let unificado = null;
@@ -2481,7 +2469,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         + (existencias ? ' · Existencias incluida (' + existencias.cruce.identificados.length + ' movimientos)' : '') + '.';
       successFilename.textContent = nombreSalida;
 
-      const sinMapeo = [...sinMapeoTotal], sinCosto = [...sinCostoTotal];
+      const sinMapeo = [...sinMapeoTotal], sinCosto = [...sinCostoTotal], sinCp = [...cpsSinTarifaTotal];
       if (sinMapeo.length){
         listaSinMapeo.innerHTML = sinMapeo.map(t => `<li>${t}</li>`).join('');
         warnSinMapeo.classList.remove('step-hidden');
@@ -2492,14 +2480,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         warnSinCosto.classList.remove('step-hidden');
       } else warnSinCosto.classList.add('step-hidden');
 
-      warnBox.classList.toggle('show', sinMapeo.length > 0 || sinCosto.length > 0);
+      if (sinCp.length){
+        listaSinCp.innerHTML = sinCp.map(cp => `<li>${cp}</li>`).join('');
+        warnSinCp.classList.remove('step-hidden');
+      } else warnSinCp.classList.add('step-hidden');
+
+      warnBox.classList.toggle('show', sinMapeo.length > 0 || sinCosto.length > 0 || sinCp.length > 0);
 
       stepForm.style.display = 'none';
       stepSuccess.classList.add('show');
     } catch (err){
       mostrarError(err.message || String(err));
       processBtn.disabled = false;
-      processBtn.textContent = 'Generar reporte';
+      processBtn.textContent = 'Volver a intentar';
     }
   });
 
@@ -2507,9 +2500,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     limpiarArchivo('v1');
     limpiarArchivo('v2');
     limpiarArchivo('settlement');
-    limpiarArchivo('envios');
     limpiarArchivo('settlement2');
-    limpiarArchivo('envios2');
     fechaCorteInput.value = '';
     personaSelect.value = '';
     actualizarZonasSegunPersona();
