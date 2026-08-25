@@ -339,7 +339,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       </div>
 
       <br>
-      <button class="ghost" id="reset-btn" type="button">Procesar otro archivo</button>
+      <button class="ghost" id="regenerar-btn" type="button" style="display:block; width:100%; box-sizing:border-box;">Volver a generar (con los mismos archivos)</button>
+      <button class="ghost" id="reset-btn" type="button" style="display:block; width:100%; box-sizing:border-box; margin-top:10px;">Procesar otro archivo</button>
     </div>
   </div>
 
@@ -499,10 +500,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     // Opcional, solo para el detalle de devoluciones/cancelaciones (no se muestra en la hoja Ventas)
     const idxMotivo = indiceDe('Descripción del estado');
     const idxSku = indiceDe('SKU');
-    // Opcional: para cruzar por dirección con el listado de envíos cuando no hay Cobros
-    // (ver aplicarFlexDirecto) — no se muestra en la hoja Ventas final.
+    // Opcional: para cruzar por dirección con el listado de envíos cuando no hay Cobros,
+    // y para mostrar el detalle de a dónde fueron las ventas con flex sin tarifa cargada
+    // (ver aplicarFlexDirecto y construirDevoluciones) — no se muestra en la hoja Ventas final.
     const idxDomicilio = indiceDe('Domicilio');
     const idxCP = indiceDe('Código postal');
+    // "Estado" es ambiguo: existe como estado de LA VENTA (columna temprana, ya usada arriba)
+    // y como provincia dentro del bloque de dirección — se busca la de provincia recién
+    // después de "Domicilio", para no repetir por error la del estado de la venta.
+    const idxCiudad = idxDomicilio !== -1 ? encabezado.findIndex((h, i) => i > idxDomicilio && normalizar(h) === normalizar('Ciudad')) : -1;
+    const idxProvincia = idxDomicilio !== -1 ? encabezado.findIndex((h, i) => i > idxDomicilio && normalizar(h) === normalizar('Estado')) : -1;
 
     const filas = [];
     for (let i = filaHeader + 1; i < aoa.length; i++){
@@ -527,6 +534,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         "SKU": idxSku !== -1 ? fila[idxSku] : '',
         "_calleNormalizada": idxDomicilio !== -1 ? normalizarDireccion(calleDeDomicilio(fila[idxDomicilio])) : null,
         "_codigoPostal": (cpParseado != null && !isNaN(cpParseado)) ? String(cpParseado) : null,
+        "_domicilio": idxDomicilio !== -1 ? fila[idxDomicilio] : null,
+        "_ciudad": idxCiudad !== -1 ? fila[idxCiudad] : null,
+        "_provincia": idxProvincia !== -1 ? fila[idxProvincia] : null,
         "Costo flex": null,
         "Unidades": unidades,
         "Ingresos por productos (ARS)": ingresos,
@@ -711,7 +721,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     // (no hace falta combinarla con la principal). Si no está o no es accesible, se sigue
     // usando Envíos (real) y el promedio como respaldo, igual que antes.
     let logisticaPorCP = null;
-    const NOMBRES_HOJAS_LOGISTICA = ['Caba', 'Zona Oeste', 'Zona Norte', 'Zona Sur'];
+    // "Carga" es una hoja simple para agregar códigos postales nuevos sin tener que
+    // pensar a qué zona pertenecen — mismo formato que las demás (Barrio/Localidad,
+    // Partido, Código Postal, Costo Flex), se combina automáticamente con el resto.
+    const NOMBRES_HOJAS_LOGISTICA = ['Caba', 'Zona Oeste', 'Zona Norte', 'Zona Sur', 'Carga'];
     for (const nombreHoja of NOMBRES_HOJAS_LOGISTICA){
       try {
         const tableZona = await fetchHojaJSON(GOOGLE_SHEET_ID_LOGISTICA, nombreHoja);
@@ -950,7 +963,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const ventasFlexYaDescontado = new Set(); // evita restar el flex más de una vez por venta (ej: pagos en cuotas)
 
     for (const m of movimientos){
-      let producto = null, dueño = null, idVenta = '', confirmado = false, estadoVenta = '', codigoPostal = null;
+      let producto = null, dueño = null, idVenta = '', confirmado = false, estadoVenta = '', codigoPostal = null, domicilio = null, ciudad = null, provincia = null;
 
       const key = normalizar(m.sku);
       const ventaPorSku = key ? mapaSku[key] : null;
@@ -971,6 +984,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             confirmado = true;
             estadoVenta = mejor.estado || '';
             codigoPostal = mejor.codigoPostal || null;
+            domicilio = mejor.domicilio || null; ciudad = mejor.ciudad || null; provincia = mejor.provincia || null;
           }
         }
       } else if (mapaVentasPorId && m.orderId && mapaVentasPorId[m.orderId]){
@@ -979,6 +993,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const v = mapaVentasPorId[m.orderId];
         producto = v.producto; dueño = v.dueño; idVenta = m.orderId; confirmado = true; estadoVenta = v.estado || '';
         codigoPostal = v.codigoPostal || null;
+        domicilio = v.domicilio || null; ciudad = v.ciudad || null; provincia = v.provincia || null;
       } else if (todasLasVentas && todasLasVentas.length && m.fechaOrigenMs != null){
         // Tampoco matchea por # de venta directo: se busca por fecha/hora entre TODAS
         // las ventas conocidas (no solo las de un SKU puntual, ya que no hay SKU).
@@ -991,6 +1006,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (mejor && mejorDiff <= TOLERANCIA_CONFIRMACION_MS){
           producto = mejor.producto; dueño = mejor.dueño; idVenta = mejor.idVenta; confirmado = true; estadoVenta = mejor.estado || '';
           codigoPostal = mejor.codigoPostal || null;
+          domicilio = mejor.domicilio || null; ciudad = mejor.ciudad || null; provincia = mejor.provincia || null;
         }
       }
 
@@ -1046,7 +1062,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       identificados.push({
         sku: m.sku, producto, dueño,
         monto: m.monto - flexDescontado, fechaLiberacion: m.fechaLiberacion, cobrado,
-        idVenta, confirmado, flexDescontado,
+        idVenta, confirmado, flexDescontado, codigoPostal, domicilio, ciudad, provincia,
       });
     }
 
@@ -1158,7 +1174,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
         if (usoPromedio){
           promedioUsados += 1;
-          ventasFlexPromedio.push({ sku: f.SKU, producto: f.Producto, fechaLiberacion: f['Fecha de venta'], flexDescontado: costo });
+          ventasFlexPromedio.push({ sku: f.SKU, producto: f.Producto, fechaLiberacion: f['Fecha de venta'], flexDescontado: costo,
+            domicilio: f['_domicilio'], ciudad: f['_ciudad'], provincia: f['_provincia'], codigoPostal: f['_codigoPostal'] });
         }
         flexPorVenta[idVenta] = costo;
       }
@@ -1858,7 +1875,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       tituloFlex.font = { name: FONT, size: 12, bold: true, color: { argb: COLOR_MARCA } };
       filaSig += 1;
 
-      const headersFlex = ['SKU', 'Producto', 'Fecha de liberación', 'Costo aplicado (promedio)'];
+      const headersFlex = ['SKU', 'Producto', 'Fecha de liberación', 'Costo aplicado (promedio)', 'Domicilio', 'Ciudad', 'Provincia', 'Código postal'];
       const filaHeaderFlex = filaSig;
       headersFlex.forEach((h, i) => {
         const cell = ws.getCell(filaHeaderFlex, i + 1);
@@ -1872,13 +1889,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
       ventasFlexPromedio.forEach((m, i) => {
         const r = filaHeaderFlex + 1 + i;
-        const valores = [m.sku, m.producto, m.fechaLiberacion, m.flexDescontado];
+        const valores = [m.sku, m.producto, m.fechaLiberacion, m.flexDescontado, m.domicilio || '', m.ciudad || '', m.provincia || '', m.codigoPostal || ''];
         valores.forEach((v, ci) => {
           const cell = ws.getCell(r, ci + 1);
           cell.value = v;
           cell.font = BODY_FONT;
           cell.border = BORDER;
-          if (ci === 0) cell.numFmt = '@';
+          if (ci === 0 || ci === 7) cell.numFmt = '@';
           if (ci === 3) cell.numFmt = FMT_MONEY;
           if (i % 2 === 1) cell.fill = BAND_FILL;
         });
@@ -1888,6 +1905,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const anchos = { 'Cuenta': 16, '# de venta': 18, 'Fecha de venta': 22, 'Estado': 30, 'Motivo': 50,
       'Producto': 40, 'Título de la publicación': 46, 'Total (ARS)': 14 };
     headers.forEach((h, i) => { ws.getColumn(i + 1).width = anchos[h] || 16; });
+    // La tabla de flex sin encontrar usa hasta 8 columnas (Domicilio, Ciudad, Provincia,
+    // Código postal en las últimas 4) — se asegura un ancho legible aunque la de
+    // devoluciones tenga menos columnas.
+    if (ventasFlexPromedio && ventasFlexPromedio.length > 0){
+      ws.getColumn(5).width = Math.max(ws.getColumn(5).width || 0, 40);
+      ws.getColumn(6).width = Math.max(ws.getColumn(6).width || 0, 20);
+      ws.getColumn(7).width = Math.max(ws.getColumn(7).width || 0, 18);
+      ws.getColumn(8).width = Math.max(ws.getColumn(8).width || 0, 14);
+    }
 
     ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
   }
@@ -2202,6 +2228,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const listaSinCosto = document.getElementById('lista-sin-costo');
   const listaSinCp = document.getElementById('lista-sin-cp');
   const resetBtn = document.getElementById('reset-btn');
+  const regenerarBtn = document.getElementById('regenerar-btn');
   const statusConexion = document.getElementById('status-conexion');
   const statusTexto = document.getElementById('status-texto');
 
@@ -2301,7 +2328,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   }
 
-  processBtn.addEventListener('click', async () => {
+  async function generarReporte(){
     ocultarError();
     processBtn.disabled = true;
     processBtn.textContent = 'Procesando...';
@@ -2376,14 +2403,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           for (const f of c.filas){
             if (!f.Producto) continue;
             const dueñoProducto = costos.vendedores[normalizar(f.Producto)] || op.dueño;
-            mapaVentasPorId[f['# de venta']] = { producto: f.Producto, dueño: dueñoProducto, estado: f['Estado'], codigoPostal: f['_codigoPostal'] };
-            todasLasVentas.push({ idVenta: f['# de venta'], fechaMs: parsearFechaVenta(f['Fecha de venta']), estado: f['Estado'], producto: f.Producto, dueño: dueñoProducto, codigoPostal: f['_codigoPostal'] });
+            mapaVentasPorId[f['# de venta']] = { producto: f.Producto, dueño: dueñoProducto, estado: f['Estado'], codigoPostal: f['_codigoPostal'], domicilio: f['_domicilio'], ciudad: f['_ciudad'], provincia: f['_provincia'] };
+            todasLasVentas.push({ idVenta: f['# de venta'], fechaMs: parsearFechaVenta(f['Fecha de venta']), estado: f['Estado'], producto: f.Producto, dueño: dueñoProducto, codigoPostal: f['_codigoPostal'], domicilio: f['_domicilio'], ciudad: f['_ciudad'], provincia: f['_provincia'] });
             if (!esVacio(f.SKU)){
               const key = normalizar(f.SKU);
               if (!mapaSku[key]){
                 mapaSku[key] = { producto: f.Producto, dueño: dueñoProducto, ventas: [] };
               }
-              mapaSku[key].ventas.push({ idVenta: f['# de venta'], fechaMs: parsearFechaVenta(f['Fecha de venta']), estado: f['Estado'], codigoPostal: f['_codigoPostal'] });
+              mapaSku[key].ventas.push({ idVenta: f['# de venta'], fechaMs: parsearFechaVenta(f['Fecha de venta']), estado: f['Estado'], codigoPostal: f['_codigoPostal'], domicilio: f['_domicilio'], ciudad: f['_ciudad'], provincia: f['_provincia'] });
             }
           }
         }
@@ -2490,11 +2517,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       stepForm.style.display = 'none';
       stepSuccess.classList.add('show');
     } catch (err){
+      // Si el error ocurre al "Volver a generar" desde la pantalla de éxito, mostramos el
+      // formulario de nuevo (con los archivos ya cargados) para que el error se vea.
+      stepSuccess.classList.remove('show');
+      stepForm.style.display = '';
       mostrarError(err.message || String(err));
       processBtn.disabled = false;
       processBtn.textContent = 'Volver a intentar';
     }
-  });
+  }
+
+  processBtn.addEventListener('click', generarReporte);
+  regenerarBtn.addEventListener('click', generarReporte);
 
   resetBtn.addEventListener('click', () => {
     limpiarArchivo('v1');
