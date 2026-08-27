@@ -473,6 +473,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // con la principal) — debe estar compartida como "Cualquiera con el enlace puede ver".
   const GOOGLE_SHEET_ID_LOGISTICA = '1-NO2pNfp-NP8TClXvjfDXukPoic4p9r2';
 
+  // Desde el 14/8/2026 rige un 15% de descuento en la logística de flex — el tarifario
+  // por zona ya tiene los precios nuevos. Para ventas ANTERIORES a esa fecha, el costo
+  // real pagado fue el de antes del descuento (estos 3 valores puntuales).
+  const FECHA_DESCUENTO_FLEX_MS = new Date(2026, 7, 14).getTime(); // mes 0-indexado: 7 = agosto
+  const PRECIOS_FLEX_PRE_DESCUENTO = { 3816.5: 4490, 5516.5: 6490, 7386.5: 8690 };
+
+  function ajustarCostoFlexPorFecha(costoActual, fechaVentaMs){
+    if (costoActual == null || fechaVentaMs == null) return costoActual;
+    if (fechaVentaMs >= FECHA_DESCUENTO_FLEX_MS) return costoActual; // ya rige el precio con descuento
+    const historico = PRECIOS_FLEX_PRE_DESCUENTO[costoActual];
+    return historico !== undefined ? historico : costoActual; // si no matchea ninguno de los 3, se deja como está
+  }
+
+
   function leerVentas(arrayBuffer){
     const wb = XLSX.read(arrayBuffer, { type: 'array' });
     const ws = wb.Sheets[wb.SheetNames[0]];
@@ -963,7 +977,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const ventasFlexYaDescontado = new Set(); // evita restar el flex más de una vez por venta (ej: pagos en cuotas)
 
     for (const m of movimientos){
-      let producto = null, dueño = null, idVenta = '', confirmado = false, estadoVenta = '', codigoPostal = null, domicilio = null, ciudad = null, provincia = null;
+      let producto = null, dueño = null, idVenta = '', confirmado = false, estadoVenta = '', codigoPostal = null, domicilio = null, ciudad = null, provincia = null, fechaVentaMs = null;
 
       const key = normalizar(m.sku);
       const ventaPorSku = key ? mapaSku[key] : null;
@@ -985,6 +999,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             estadoVenta = mejor.estado || '';
             codigoPostal = mejor.codigoPostal || null;
             domicilio = mejor.domicilio || null; ciudad = mejor.ciudad || null; provincia = mejor.provincia || null;
+            fechaVentaMs = mejor.fechaMs || null;
           }
         }
       } else if (mapaVentasPorId && m.orderId && mapaVentasPorId[m.orderId]){
@@ -994,6 +1009,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         producto = v.producto; dueño = v.dueño; idVenta = m.orderId; confirmado = true; estadoVenta = v.estado || '';
         codigoPostal = v.codigoPostal || null;
         domicilio = v.domicilio || null; ciudad = v.ciudad || null; provincia = v.provincia || null;
+        fechaVentaMs = v.fechaMs || null;
       } else if (todasLasVentas && todasLasVentas.length && m.fechaOrigenMs != null){
         // Tampoco matchea por # de venta directo: se busca por fecha/hora entre TODAS
         // las ventas conocidas (no solo las de un SKU puntual, ya que no hay SKU).
@@ -1007,6 +1023,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           producto = mejor.producto; dueño = mejor.dueño; idVenta = mejor.idVenta; confirmado = true; estadoVenta = mejor.estado || '';
           codigoPostal = mejor.codigoPostal || null;
           domicilio = mejor.domicilio || null; ciudad = mejor.ciudad || null; provincia = mejor.provincia || null;
+          fechaVentaMs = mejor.fechaMs || null;
         }
       }
 
@@ -1040,7 +1057,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           if (claveEnvio && mapaEnvios.porId[claveEnvio] > 0) costo = mapaEnvios.porId[claveEnvio];
         }
         if (costo == null && logisticaPorCP && codigoPostal && logisticaPorCP[codigoPostal] !== undefined){
-          costo = logisticaPorCP[codigoPostal];
+          costo = ajustarCostoFlexPorFecha(logisticaPorCP[codigoPostal], fechaVentaMs);
           flexPorZonaCount += 1;
         }
         if (costo == null && codigoPostal) cpsSinTarifa.add(codigoPostal);
@@ -1161,7 +1178,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         }
 
         if (costo == null && logisticaPorCP && f['_codigoPostal'] && logisticaPorCP[f['_codigoPostal']] !== undefined){
-          costo = logisticaPorCP[f['_codigoPostal']];
+          costo = ajustarCostoFlexPorFecha(logisticaPorCP[f['_codigoPostal']], parsearFechaVenta(f['Fecha de venta']));
           porZonaUsados += 1;
         }
         if (costo == null && f['_codigoPostal']) cpsSinTarifa.add(f['_codigoPostal']);
@@ -2403,7 +2420,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           for (const f of c.filas){
             if (!f.Producto) continue;
             const dueñoProducto = costos.vendedores[normalizar(f.Producto)] || op.dueño;
-            mapaVentasPorId[f['# de venta']] = { producto: f.Producto, dueño: dueñoProducto, estado: f['Estado'], codigoPostal: f['_codigoPostal'], domicilio: f['_domicilio'], ciudad: f['_ciudad'], provincia: f['_provincia'] };
+            mapaVentasPorId[f['# de venta']] = { producto: f.Producto, dueño: dueñoProducto, estado: f['Estado'], codigoPostal: f['_codigoPostal'], domicilio: f['_domicilio'], ciudad: f['_ciudad'], provincia: f['_provincia'], fechaMs: parsearFechaVenta(f['Fecha de venta']) };
             todasLasVentas.push({ idVenta: f['# de venta'], fechaMs: parsearFechaVenta(f['Fecha de venta']), estado: f['Estado'], producto: f.Producto, dueño: dueñoProducto, codigoPostal: f['_codigoPostal'], domicilio: f['_domicilio'], ciudad: f['_ciudad'], provincia: f['_provincia'] });
             if (!esVacio(f.SKU)){
               const key = normalizar(f.SKU);
