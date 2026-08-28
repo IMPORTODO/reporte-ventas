@@ -468,10 +468,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ID de la spreadsheet PÚBLICA (solo MAPING + TITULARES, sin datos sensibles)
   // que replica en vivo la privada mediante IMPORTRANGE.
   // Si se recrea esa spreadsheet en el futuro, alcanza con actualizar este ID.
-  const GOOGLE_SHEET_ID = '1kjkSXWw3WixShdlS3aGVRCbOhPOwm0Ko8JBSFN-maZ8';
+  const GOOGLE_SHEET_ID = '1gU1Pqv2JTdRHsWf23fzOhlnFyXkaySat';
   // Hoja aparte con el tarifario de flex por zona/código postal (no hace falta combinarla
   // con la principal) — debe estar compartida como "Cualquiera con el enlace puede ver".
-  const GOOGLE_SHEET_ID_LOGISTICA = '1LxiyWTBjECyzBy7AxFVemq3ijtG5neNt';
+  const GOOGLE_SHEET_ID_LOGISTICA = '1OM0YXsr9F4TQOAT1UpimHkRU0gNLswMX';
 
   // Desde el 14/8/2026 rige un 15% de descuento en la logística de flex — el tarifario
   // por zona ya tiene los precios nuevos. Para ventas ANTERIORES a esa fecha, el costo
@@ -754,7 +754,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return { mapping, titulares, vendedores, gastosGrupales, logisticaPorCP };
   }
 
-  const PALABRAS_EXCLUSION = ['cancelad', 'devoluc', 'devuelto'];
+  // "devolveremos": cubre el caso de "no pudimos entregar el producto, te lo devolveremos"
+  // (el comprador no lo retiró) — Meli pone Total (ARS) en $0 para esa venta, y sin esta
+  // palabra la rentabilidad de ese producto se ve arrastrada a la baja por un ingreso que
+  // en los hechos todavía no se perdió (el producto vuelve al vendedor).
+  const PALABRAS_EXCLUSION = ['cancelad', 'devoluc', 'devuelto', 'devolveremos'];
   const NOMBRE_HOJA_RESUMEN = 'Rentabilidad p-p';
 
   function esVentaExcluidaDelProducto(estado){
@@ -1367,7 +1371,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const rango = (campo) => `'${f.nombreHoja}'!$${colLetter(f.col[campo])}$2:$${colLetter(f.col[campo])}$${f.n + 1}`;
       const rProducto = rango('Producto'), rUnidades = rango('Unidades'),
             rIngresos = rango('Ingresos por productos (ARS)'), rTotal = rango('Total (ARS)'), rEstado = rango('Estado');
-      const noExcluida = `${rEstado},"<>*cancelad*",${rEstado},"<>*devoluc*",${rEstado},"<>*devuelto*"`;
+      const noExcluida = `${rEstado},"<>*cancelad*",${rEstado},"<>*devoluc*",${rEstado},"<>*devuelto*",${rEstado},"<>*devolveremos*"`;
       return { rProducto, rUnidades, rIngresos, rTotal, noExcluida };
     });
 
@@ -1680,15 +1684,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const rTotal = rango('Total (ARS)'), rEstado = rango('Estado'),
             rIngresos = rango('Ingresos por productos (ARS)'), rProducto = rango('Producto'),
             rCostoFlex = rango('Costo flex');
-      const noExcluida = `${rEstado},"<>*cancelad*",${rEstado},"<>*devoluc*",${rEstado},"<>*devuelto*"`;
+      const noExcluida = `${rEstado},"<>*cancelad*",${rEstado},"<>*devoluc*",${rEstado},"<>*devuelto*",${rEstado},"<>*devolveremos*"`;
+      // Para "Facturación final": solo se excluyen las canceladas (factura anulada según
+      // Meli). En mediación/devolución la factura sigue vigente hasta que se resuelva, así
+      // que a diferencia de "noExcluida" (usado para rentabilidad), acá no se sacan.
+      const noCancelada = `${rEstado},"<>*cancelad*"`;
       const esCancelOSearch = (palabra) => `ISNUMBER(SEARCH("${palabra}",${rEstado}))`;
-      const cualquierExcluida = `((${esCancelOSearch('cancelad')}+${esCancelOSearch('devoluc')}+${esCancelOSearch('devuelto')})>0)`;
+      const cualquierExcluida = `((${esCancelOSearch('cancelad')}+${esCancelOSearch('devoluc')}+${esCancelOSearch('devuelto')}+${esCancelOSearch('devolveremos')})>0)`;
       const esMiProducto = `(COUNTIF('${NOMBRE_HOJA_RESUMEN}'!$A$${bloquePrincipal.primeraFilaDatos}:$A$${bloquePrincipal.ultimaFilaDatos},${rProducto})>0)`;
-      return { rTotal, rIngresos, rCostoFlex, noExcluida, cualquierExcluida, esMiProducto };
+      return { rTotal, rIngresos, rCostoFlex, noExcluida, noCancelada, cualquierExcluida, esMiProducto };
     });
     const suma = (partes) => partes.length === 1 ? partes[0] : `(${partes.join('+')})`;
 
     const facturacionF = suma(porFuente.map(pf => `SUMIFS(${pf.rIngresos},${pf.noExcluida})`));
+    const facturacionFinalF = suma(porFuente.map(pf => `SUMIFS(${pf.rIngresos},${pf.noCancelada})`));
     const ingresoFinalF = suma(porFuente.map(pf => `SUMIFS(${pf.rTotal},${pf.noExcluida})`));
     const impactoDevolF = suma(porFuente.map(pf => `SUMPRODUCT(${pf.cualquierExcluida}*${pf.esMiProducto}*${pf.rTotal})`));
     const flexPagadoF = '-' + suma(porFuente.map(pf => `SUM(${pf.rCostoFlex})`));
@@ -1748,6 +1757,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const filaFact = filaPrincipal('Total facturación (cuenta/s completa/s)', { formula: facturacionF }, FMT_MONEY);
     filaSub('· De tus productos (propio)', { formula: `IFERROR(${propioFacturacionF},0)` }, 'FF0F5132');
     filaSub('· De productos de terceros (ajeno)', { formula: `IFERROR(${ajenoFacturacionF},0)` }, COLOR_MARCA);
+    filaPrincipal('Facturación final (excluye solo canceladas; en mediación/devolución sigue facturada)', { formula: facturacionFinalF }, FMT_MONEY);
     const filaIngFinal = filaPrincipal('Total ingresos finales en tu/s cuenta/s', { formula: ingresoFinalF }, FMT_MONEY);
     filaPrincipal('Costo total operativo (Meli + flex)', { formula: `IFERROR((B${filaFact}-B${filaIngFinal})/B${filaFact},"")` }, FMT_PCT);
     filaPrincipal('Total de flex pagado — informativo, ya está descontado arriba', { formula: flexPagadoF }, FMT_MONEY);
