@@ -336,6 +336,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           <strong>⚠ Códigos postales con flex sin tarifa cargada (se completaron con el promedio) — agregalos a tu tarifario por zona:</strong>
           <ul id="lista-sin-cp"></ul>
         </div>
+        <div id="warn-precio-corregido" class="step-hidden" style="margin-top:10px;">
+          <strong>⚠ Ventas con precio en $0 en el export de Meli (falla de ellos, no cancelación) — se completaron con el promedio del producto:</strong>
+          <ul id="lista-precio-corregido"></ul>
+        </div>
       </div>
 
       <br>
@@ -439,6 +443,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   // Suma los gastos grupales que correspondan según qué cuenta(s) eligió el usuario
   // (cuenta principal, secundaria, o ambas) y el/los mes/es cubiertos por las ventas.
+  // Si el período del reporte no tiene datos propios cargados (ej: reporte de un mes
+  // anterior a cuando se empezó a llevar la planilla), se completa con el promedio de
+  // los meses que sí están cargados — así los gastos siguen siendo un número real en la
+  // rentabilidad final, en vez de faltar directamente.
   function calcularGastosGrupales(gastosGrupales, dueño, cuentasSeleccionadas, meses){
     if (!gastosGrupales) return null;
     const par = CUENTAS_C1_C2[dueño];
@@ -449,19 +457,42 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!filaMiembro) return null;
 
     const CATEGORIAS = ['insumos', 'externos', 'roturas', 'impositivos'];
+
+    // Promedio por mes de TODOS los meses cargados para este miembro — respaldo para
+    // cuando el mes puntual del reporte no está.
+    const mesesCargados = Object.keys(filaMiembro);
+    let promedioPorMes = null;
+    if (mesesCargados.length){
+      promedioPorMes = { insumos: 0, externos: 0, roturas: 0, impositivos: 0 };
+      for (const m of mesesCargados){
+        CATEGORIAS.forEach(cat => {
+          if (incluirC1) promedioPorMes[cat] += filaMiembro[m][cat].c1;
+          if (incluirC2) promedioPorMes[cat] += filaMiembro[m][cat].c2;
+        });
+      }
+      CATEGORIAS.forEach(cat => { promedioPorMes[cat] /= mesesCargados.length; });
+    }
+
     const resultado = { insumos: 0, externos: 0, roturas: 0, impositivos: 0 };
-    let encontrado = false;
+    let algunoEncontrado = false;
+    let algunoPromediado = false;
     for (const mes of meses){
       const datosMes = filaMiembro[normalizar(mes)];
-      if (!datosMes) continue;
-      encontrado = true;
-      CATEGORIAS.forEach(cat => {
-        if (incluirC1) resultado[cat] += datosMes[cat].c1;
-        if (incluirC2) resultado[cat] += datosMes[cat].c2;
-      });
+      if (datosMes){
+        algunoEncontrado = true;
+        CATEGORIAS.forEach(cat => {
+          if (incluirC1) resultado[cat] += datosMes[cat].c1;
+          if (incluirC2) resultado[cat] += datosMes[cat].c2;
+        });
+      } else if (promedioPorMes){
+        // Sin datos de este mes puntual — se completa con el promedio de los meses cargados
+        algunoPromediado = true;
+        CATEGORIAS.forEach(cat => { resultado[cat] += promedioPorMes[cat]; });
+      }
     }
-    if (!encontrado) return null;
+    if (!algunoEncontrado && !algunoPromediado) return null;
     resultado.total = CATEGORIAS.reduce((s, cat) => s + resultado[cat], 0);
+    resultado.esPromedio = algunoPromediado; // para avisar en el reporte que se usó (total o parcialmente) el promedio
     return resultado;
   }
 
@@ -1230,6 +1261,30 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       grupos[f["Producto"]].ventas.push(f);
     }
 
+    // A veces el export de Mercado Libre trae una venta en $0 por una falla de carga de
+    // ELLOS (no porque la venta se haya cancelado/devuelto — eso ya se excluyó arriba). Sin
+    // corregir esto, esa venta arrastra a la baja el promedio de rentabilidad del producto
+    // (y de paso, el global) sin ser un dato real. Se completa con el promedio de las OTRAS
+    // ventas del mismo producto — así no distorsiona el promedio, y la facturación final
+    // sigue reflejando un número más real en vez de perder esa venta directamente.
+    const ventasPrecioCorregido = [];
+    for (const producto in grupos){
+      const grupo = grupos[producto];
+      const conPrecio = grupo.ventas.filter(v => v["Ingresos por productos (ARS)"] > 0);
+      const sinPrecio = grupo.ventas.filter(v => v["Ingresos por productos (ARS)"] === 0);
+      if (sinPrecio.length === 0 || conPrecio.length === 0) continue; // nada para corregir, o sin ninguna referencia del producto
+      const unidadesConPrecio = conPrecio.reduce((s, v) => s + v["Unidades"], 0);
+      if (!unidadesConPrecio) continue;
+      const ingresoPorUnidad = conPrecio.reduce((s, v) => s + v["Ingresos por productos (ARS)"], 0) / unidadesConPrecio;
+      const totalPorUnidad = conPrecio.reduce((s, v) => s + v["Total (ARS)"], 0) / unidadesConPrecio;
+      for (const v of sinPrecio){
+        ventasPrecioCorregido.push({ idVenta: v["# de venta"], producto, fecha: v["Fecha de venta"], montoAsignado: ingresoPorUnidad * v["Unidades"] });
+        v["Ingresos por productos (ARS)"] = ingresoPorUnidad * v["Unidades"];
+        v["Total (ARS)"] = totalPorUnidad * v["Unidades"];
+        v["Venta por unidad"] = v["Unidades"] ? ingresoPorUnidad : null;
+      }
+    }
+
     const resumenCompleto = Object.entries(grupos).map(([producto, { ventas, costo }]) => {
       const unidades = ventas.reduce((s, v) => s + v["Unidades"], 0);
       const totalSum = ventas.reduce((s, v) => s + v["Total (ARS)"], 0);
@@ -1253,7 +1308,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const resumen = resumenCompleto.filter(f => esMio(f.dueño));
     const resumenTerceros = resumenCompleto.filter(f => !esMio(f.dueño));
 
-    return { filas, desglosePresentes, resumen, resumenTerceros, personaSeleccionada, sinMapeo: [...sinMapeo], sinCosto: [...sinCosto] };
+    return { filas, desglosePresentes, resumen, resumenTerceros, personaSeleccionada, sinMapeo: [...sinMapeo], sinCosto: [...sinCosto], ventasPrecioCorregido };
   }
 
   // ---------- Construcción del Excel de salida (ExcelJS) ----------
@@ -1818,7 +1873,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     // ---- Gastos mensuales del negocio, detallados por categoría (opcional — solo si hay datos) ----
     let gastosTotalF = '0';
     if (gastoGrupalInfo && gastoGrupalInfo.total != null){
-      seccionHeader(fila, 'GASTOS MENSUALES', 'FF3D6B54', 'FFFFFFFF');
+      const tituloGastos = gastoGrupalInfo.esPromedio
+        ? 'GASTOS MENSUALES (mes sin datos propios — completado con el promedio)'
+        : 'GASTOS MENSUALES';
+      seccionHeader(fila, tituloGastos, 'FF3D6B54', 'FFFFFFFF');
       fila += 1;
       filaPrincipal('Insumos', -gastoGrupalInfo.insumos, FMT_MONEY);
       filaPrincipal('GASTOS EXTERNOS MELI', -gastoGrupalInfo.externos, FMT_MONEY);
@@ -2251,9 +2309,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const warnSinMapeo = document.getElementById('warn-sin-mapeo');
   const warnSinCosto = document.getElementById('warn-sin-costo');
   const warnSinCp = document.getElementById('warn-sin-cp');
+  const warnPrecioCorregido = document.getElementById('warn-precio-corregido');
   const listaSinMapeo = document.getElementById('lista-sin-mapeo');
   const listaSinCosto = document.getElementById('lista-sin-costo');
   const listaSinCp = document.getElementById('lista-sin-cp');
+  const listaPrecioCorregido = document.getElementById('lista-precio-corregido');
   const resetBtn = document.getElementById('reset-btn');
   const regenerarBtn = document.getElementById('regenerar-btn');
   const statusConexion = document.getElementById('status-conexion');
@@ -2382,6 +2442,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const todosDesglose = [];
       const sinMapeoTotal = new Set();
       const sinCostoTotal = new Set();
+      const preciosCorregidosTotal = [];
 
       for (let i = 0; i < op.cuentas.length; i++){
         const nombreCuenta = op.cuentas[i];
@@ -2394,6 +2455,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const combinado = combinarVentasYCostos(leido.filas, leido.desglosePresentes, costos, op.dueño);
         combinado.sinMapeo.forEach(t => sinMapeoTotal.add(t));
         combinado.sinCosto.forEach(t => sinCostoTotal.add(t));
+        preciosCorregidosTotal.push(...combinado.ventasPrecioCorregido);
 
         cuentas.push({
           nombre: nombreCuenta,
@@ -2539,7 +2601,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         warnSinCp.classList.remove('step-hidden');
       } else warnSinCp.classList.add('step-hidden');
 
-      warnBox.classList.toggle('show', sinMapeo.length > 0 || sinCosto.length > 0 || sinCp.length > 0);
+      if (preciosCorregidosTotal.length){
+        listaPrecioCorregido.innerHTML = preciosCorregidosTotal.map(v =>
+          `<li>${v.idVenta} · ${v.producto} · ${formatearMonedaEntero(v.montoAsignado)} (promedio)</li>`).join('');
+        warnPrecioCorregido.classList.remove('step-hidden');
+      } else warnPrecioCorregido.classList.add('step-hidden');
+
+      warnBox.classList.toggle('show', sinMapeo.length > 0 || sinCosto.length > 0 || sinCp.length > 0 || preciosCorregidosTotal.length > 0);
 
       stepForm.style.display = 'none';
       stepSuccess.classList.add('show');
