@@ -340,6 +340,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           <strong>⚠ Ventas con precio en $0 en el export de Meli (falla de ellos, no cancelación) — se completaron con el promedio del producto:</strong>
           <ul id="lista-precio-corregido"></ul>
         </div>
+        <div id="warn-sin-vendedor" class="step-hidden" style="margin-top:10px;">
+          <strong>⚠ Productos sin "Vendedor" cargado en TITULARES — se asumieron como tuyos por defecto. Si en realidad son de otra persona, cargá el vendedor correcto:</strong>
+          <ul id="lista-sin-vendedor"></ul>
+        </div>
       </div>
 
       <br>
@@ -604,20 +608,46 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return encabezado.findIndex(h => alias.includes(normalizar(h)));
   }
 
+  const ALIAS_SUPLENTE = ['suplente'];
+  const ALIAS_FECHA_DESDE = ['fecha desde', 'desde'];
+  const ALIAS_FECHA_HASTA = ['fecha hasta', 'hasta'];
+
   function mapeoDesdeFilas(filasMapeo){
     if (filasMapeo.length === 0) throw new Error('la hoja de mapeo está vacía');
     const encMapeo = filasMapeo[0].map(String);
     const idxTitulo = encontrarColumna(encMapeo, ALIAS_TITULO_PUBLICACION);
     const idxOriginal = encontrarColumna(encMapeo, ALIAS_TITULO_ORIGINAL);
     if (idxTitulo === -1 || idxOriginal === -1) throw new Error('no se identificaron las columnas de mapeo. Columnas encontradas: [' + encMapeo.join(' | ') + ']');
+    // Opcional: "Suplente" — un vendedor que pidió prestado el PRODUCTO (no una publicación
+    // puntual: aplica a todas sus publicaciones) durante un rango de fechas — sus ventas en
+    // ese lapso se tratan como propias de él (o su cuenta secundaria), aunque el titular
+    // real en TITULARES sea otra persona. Sin fecha Desde/Hasta cargada, aplica siempre. Si
+    // la hoja no tiene estas columnas, el mapeo funciona igual que siempre (sin excepciones).
+    const idxSuplente = encontrarColumna(encMapeo, ALIAS_SUPLENTE);
+    const idxDesde = encontrarColumna(encMapeo, ALIAS_FECHA_DESDE);
+    const idxHasta = encontrarColumna(encMapeo, ALIAS_FECHA_HASTA);
     const mapping = {};
+    const suplentes = {}; // clave: producto (normalizado) -> { nombre, desdeMs, hastaMs }
     for (let i = 1; i < filasMapeo.length; i++){
       const fila = filasMapeo[i];
       const titulo = fila[idxTitulo];
       if (esVacio(titulo)) continue;
-      mapping[normalizar(titulo)] = fila[idxOriginal];
+      const original = fila[idxOriginal];
+      mapping[normalizar(titulo)] = original;
+      if (idxSuplente !== -1 && !esVacio(fila[idxSuplente]) && !esVacio(original)){
+        const claveProducto = normalizar(original);
+        if (!suplentes[claveProducto]){
+          const hastaMs = idxHasta !== -1 ? parsearFechaGviz(fila[idxHasta]) : null;
+          suplentes[claveProducto] = {
+            nombre: String(fila[idxSuplente]).trim().toUpperCase(),
+            desdeMs: idxDesde !== -1 ? parsearFechaGviz(fila[idxDesde]) : null,
+            // "Hasta" es inclusivo de todo ese día — se le suma el resto del día (23:59:59)
+            hastaMs: hastaMs != null ? hastaMs + 24 * 60 * 60 * 1000 - 1 : null,
+          };
+        }
+      }
     }
-    return mapping;
+    return { mapping, suplentes };
   }
 
   function titularesDesdeFilas(filasTit){
@@ -740,12 +770,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   async function leerCostosDesdeGoogle(sheetId){
     let mapping = null;
+    let suplentes = null;
     let ultimoError = null;
     for (const candidato of MAPING_CANDIDATES_ORIGINALES){
       try {
         const table = await fetchHojaJSON(sheetId, candidato);
         const filas = tablaAAOA(table);
-        mapping = mapeoDesdeFilas(filas); // tira error si las columnas no matchean -> probamos el siguiente candidato
+        const resultadoMapeo = mapeoDesdeFilas(filas); // tira error si las columnas no matchean -> probamos el siguiente candidato
+        mapping = resultadoMapeo.mapping;
+        suplentes = resultadoMapeo.suplentes;
         break;
       } catch (e) { ultimoError = e; }
     }
@@ -782,7 +815,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       } catch (e) { /* esta hoja de zona no está o no es accesible — se sigue con las demás */ }
     }
 
-    return { mapping, titulares, vendedores, gastosGrupales, logisticaPorCP };
+    return { mapping, suplentes, titulares, vendedores, gastosGrupales, logisticaPorCP };
   }
 
   // "devolveremos": cubre el caso de "no pudimos entregar el producto, te lo devolveremos"
@@ -832,6 +865,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!m) return null;
     const t = new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10)).getTime();
     return isNaN(t) ? null : t;
+  }
+
+  // Google devuelve las celdas de tipo fecha como "Date(AAAA,MM,DD)" (mes 0-indexado) —
+  // se usa para las fechas Desde/Hasta del Suplente en MAPPING. Si la columna no está
+  // tipada como fecha y viene como texto DD/MM/AAAA, cae al mismo parser que usa Envíos.
+  function parsearFechaGviz(v){
+    if (esVacio(v)) return null;
+    const s = String(v).trim();
+    const m = s.match(/^Date\((\d+),(\d+),(\d+)/);
+    if (m){
+      const t = new Date(parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10)).getTime();
+      return isNaN(t) ? null : t;
+    }
+    return parsearFechaCorta(s);
   }
 
   function leerEnvios(arrayBuffer){
@@ -1239,7 +1286,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   function combinarVentasYCostos(filas, desglosePresentes, costos, personaSeleccionada){
-    const { mapping, titulares, vendedores } = costos;
+    const { mapping, suplentes, titulares, vendedores } = costos;
     const sinMapeo = new Set();
     const sinCosto = new Set();
 
@@ -1251,25 +1298,44 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const costo = titulares[normalizar(producto)];
       f["_costo"] = (costo === undefined || isNaN(costo)) ? null : costo;
       if (f["_costo"] === null) sinCosto.add(producto);
+      // Suplente: aplica a nivel PRODUCTO (todas sus publicaciones), no a una publicación
+      // puntual — préstamo momentáneo entre vendedores. Si tiene rango de fechas cargado,
+      // solo pisa al titular real dentro de ese rango; sin fechas, aplica siempre.
+      f["_suplente"] = null;
+      const regla = suplentes && suplentes[normalizar(producto)];
+      if (regla){
+        const fechaVentaMs = parsearFechaVenta(f["Fecha de venta"]);
+        const dentroDesde = regla.desdeMs == null || (fechaVentaMs != null && fechaVentaMs >= regla.desdeMs);
+        const dentroHasta = regla.hastaMs == null || (fechaVentaMs != null && fechaVentaMs <= regla.hastaMs);
+        if (dentroDesde && dentroHasta) f["_suplente"] = regla.nombre;
+      }
     }
 
+    const sinVendedor = new Set();
     const grupos = {};
     for (const f of filas){
       if (!f["Producto"]) continue;
       if (esVentaExcluidaDelProducto(f["Estado"])) continue;
-      if (!grupos[f["Producto"]]) grupos[f["Producto"]] = { ventas: [], costo: f["_costo"] };
-      grupos[f["Producto"]].ventas.push(f);
+      const vendedorCargado = vendedores[normalizar(f["Producto"])];
+      if (!f["_suplente"] && !vendedorCargado) sinVendedor.add(f["Producto"]);
+      // El suplente de esta publicación puntual manda por sobre el titular general del
+      // producto; si no hay ninguno de los dos, se asume que es del que genera el reporte.
+      const dueño = f["_suplente"] || vendedorCargado || personaSeleccionada;
+      const clave = f["Producto"] + '⟩' + dueño;
+      if (!grupos[clave]) grupos[clave] = { producto: f["Producto"], dueño, ventas: [], costo: f["_costo"] };
+      grupos[clave].ventas.push(f);
     }
 
     // A veces el export de Mercado Libre trae una venta en $0 por una falla de carga de
     // ELLOS (no porque la venta se haya cancelado/devuelto — eso ya se excluyó arriba). Sin
     // corregir esto, esa venta arrastra a la baja el promedio de rentabilidad del producto
     // (y de paso, el global) sin ser un dato real. Se completa con el promedio de las OTRAS
-    // ventas del mismo producto — así no distorsiona el promedio, y la facturación final
-    // sigue reflejando un número más real en vez de perder esa venta directamente.
+    // ventas del mismo producto (dentro del mismo grupo producto+dueño) — así no distorsiona
+    // el promedio, y la facturación final sigue reflejando un número más real en vez de
+    // perder esa venta directamente.
     const ventasPrecioCorregido = [];
-    for (const producto in grupos){
-      const grupo = grupos[producto];
+    for (const clave in grupos){
+      const grupo = grupos[clave];
       const conPrecio = grupo.ventas.filter(v => v["Ingresos por productos (ARS)"] > 0);
       const sinPrecio = grupo.ventas.filter(v => v["Ingresos por productos (ARS)"] === 0);
       if (sinPrecio.length === 0 || conPrecio.length === 0) continue; // nada para corregir, o sin ninguna referencia del producto
@@ -1278,14 +1344,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const ingresoPorUnidad = conPrecio.reduce((s, v) => s + v["Ingresos por productos (ARS)"], 0) / unidadesConPrecio;
       const totalPorUnidad = conPrecio.reduce((s, v) => s + v["Total (ARS)"], 0) / unidadesConPrecio;
       for (const v of sinPrecio){
-        ventasPrecioCorregido.push({ idVenta: v["# de venta"], producto, fecha: v["Fecha de venta"], montoAsignado: ingresoPorUnidad * v["Unidades"] });
+        ventasPrecioCorregido.push({ idVenta: v["# de venta"], producto: grupo.producto, fecha: v["Fecha de venta"], montoAsignado: ingresoPorUnidad * v["Unidades"] });
         v["Ingresos por productos (ARS)"] = ingresoPorUnidad * v["Unidades"];
         v["Total (ARS)"] = totalPorUnidad * v["Unidades"];
         v["Venta por unidad"] = v["Unidades"] ? ingresoPorUnidad : null;
       }
     }
 
-    const resumenCompleto = Object.entries(grupos).map(([producto, { ventas, costo }]) => {
+    const resumenCompleto = Object.values(grupos).map(({ producto, dueño, ventas, costo }) => {
       const unidades = ventas.reduce((s, v) => s + v["Unidades"], 0);
       const totalSum = ventas.reduce((s, v) => s + v["Total (ARS)"], 0);
       const ingresosSum = ventas.reduce((s, v) => s + v["Ingresos por productos (ARS)"], 0);
@@ -1298,9 +1364,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       // % Ganancia = Ganancia neta ÷ Venta promedio (mismo criterio que la fórmula real
       // de Excel, columna H — antes acá dividía por Ingreso neto y no coincidía)
       const pct = (gananciaNeta == null || !ventaProm) ? null : gananciaNeta / ventaProm;
-      // Dueño del producto: viene de la columna Vendedor de TITULARES; si no está
-      // cargado, se asume que es del que genera el reporte (para no perder datos).
-      const dueño = vendedores[normalizar(producto)] || personaSeleccionada;
       return { producto, cantVentas: ventas.length, unidades, ventaProm, ingresoNeto, costo, gananciaNeta, pct, dueño };
     });
 
@@ -1308,7 +1371,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const resumen = resumenCompleto.filter(f => esMio(f.dueño));
     const resumenTerceros = resumenCompleto.filter(f => !esMio(f.dueño));
 
-    return { filas, desglosePresentes, resumen, resumenTerceros, personaSeleccionada, sinMapeo: [...sinMapeo], sinCosto: [...sinCosto], ventasPrecioCorregido };
+    return { filas, desglosePresentes, resumen, resumenTerceros, personaSeleccionada, sinMapeo: [...sinMapeo], sinCosto: [...sinCosto], ventasPrecioCorregido, sinVendedor: [...sinVendedor] };
   }
 
   // ---------- Construcción del Excel de salida (ExcelJS) ----------
@@ -2310,10 +2373,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const warnSinCosto = document.getElementById('warn-sin-costo');
   const warnSinCp = document.getElementById('warn-sin-cp');
   const warnPrecioCorregido = document.getElementById('warn-precio-corregido');
+  const warnSinVendedor = document.getElementById('warn-sin-vendedor');
   const listaSinMapeo = document.getElementById('lista-sin-mapeo');
   const listaSinCosto = document.getElementById('lista-sin-costo');
   const listaSinCp = document.getElementById('lista-sin-cp');
   const listaPrecioCorregido = document.getElementById('lista-precio-corregido');
+  const listaSinVendedor = document.getElementById('lista-sin-vendedor');
   const resetBtn = document.getElementById('reset-btn');
   const regenerarBtn = document.getElementById('regenerar-btn');
   const statusConexion = document.getElementById('status-conexion');
@@ -2443,6 +2508,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const sinMapeoTotal = new Set();
       const sinCostoTotal = new Set();
       const preciosCorregidosTotal = [];
+      const sinVendedorTotal = new Set();
 
       for (let i = 0; i < op.cuentas.length; i++){
         const nombreCuenta = op.cuentas[i];
@@ -2456,6 +2522,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         combinado.sinMapeo.forEach(t => sinMapeoTotal.add(t));
         combinado.sinCosto.forEach(t => sinCostoTotal.add(t));
         preciosCorregidosTotal.push(...combinado.ventasPrecioCorregido);
+        combinado.sinVendedor.forEach(t => sinVendedorTotal.add(t));
 
         cuentas.push({
           nombre: nombreCuenta,
@@ -2585,7 +2652,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         + (existencias ? ' · Existencias incluida (' + existencias.cruce.identificados.length + ' movimientos)' : '') + '.';
       successFilename.textContent = nombreSalida;
 
-      const sinMapeo = [...sinMapeoTotal], sinCosto = [...sinCostoTotal], sinCp = [...cpsSinTarifaTotal];
+      const sinMapeo = [...sinMapeoTotal], sinCosto = [...sinCostoTotal], sinCp = [...cpsSinTarifaTotal], sinVendedor = [...sinVendedorTotal];
       if (sinMapeo.length){
         listaSinMapeo.innerHTML = sinMapeo.map(t => `<li>${t}</li>`).join('');
         warnSinMapeo.classList.remove('step-hidden');
@@ -2607,7 +2674,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         warnPrecioCorregido.classList.remove('step-hidden');
       } else warnPrecioCorregido.classList.add('step-hidden');
 
-      warnBox.classList.toggle('show', sinMapeo.length > 0 || sinCosto.length > 0 || sinCp.length > 0 || preciosCorregidosTotal.length > 0);
+      if (sinVendedor.length){
+        listaSinVendedor.innerHTML = sinVendedor.map(p => `<li>${p}</li>`).join('');
+        warnSinVendedor.classList.remove('step-hidden');
+      } else warnSinVendedor.classList.add('step-hidden');
+
+      warnBox.classList.toggle('show', sinMapeo.length > 0 || sinCosto.length > 0 || sinCp.length > 0 || preciosCorregidosTotal.length > 0 || sinVendedor.length > 0);
 
       stepForm.style.display = 'none';
       stepSuccess.classList.add('show');
