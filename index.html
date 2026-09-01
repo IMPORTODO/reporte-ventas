@@ -736,6 +736,49 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return Object.keys(mapa).length ? mapa : null;
   }
 
+  // Parsea la hoja PEDIDOS (Fecha, Producto, Costo) en un historial por producto, para
+  // poder aplicarle a cada venta el costo que realmente regía en su fecha — en vez de
+  // usar siempre el costo actual de TITULARES, que distorsiona la rentabilidad de ventas
+  // viejas cuando el costo cambió desde entonces. Filas que no matchean ningún producto
+  // conocido (ej: gastos personales cargados en la misma hoja) simplemente no se usan.
+  const ALIAS_FECHA_PEDIDO = ['fecha'];
+  const ALIAS_PRODUCTO_PEDIDO = ['producto'];
+  const ALIAS_COSTO_PEDIDO = ['costo'];
+
+  function pedidosDesdeFilas(filasPedidos){
+    if (!filasPedidos || filasPedidos.length === 0) return null;
+    const encabezado = filasPedidos[0].map(String);
+    const idxFecha = encontrarColumna(encabezado, ALIAS_FECHA_PEDIDO);
+    const idxProducto = encontrarColumna(encabezado, ALIAS_PRODUCTO_PEDIDO);
+    const idxCosto = encontrarColumna(encabezado, ALIAS_COSTO_PEDIDO);
+    if (idxFecha === -1 || idxProducto === -1 || idxCosto === -1) return null;
+
+    const historial = {}; // producto (normalizado) -> [{fechaMs, costo}, ...]
+    for (let i = 1; i < filasPedidos.length; i++){
+      const fila = filasPedidos[i];
+      const producto = fila[idxProducto];
+      const costo = parseFloat(fila[idxCosto]);
+      const fechaMs = parsearFechaGviz(fila[idxFecha]);
+      if (esVacio(producto) || isNaN(costo) || fechaMs == null) continue;
+      const clave = normalizar(producto);
+      if (!historial[clave]) historial[clave] = [];
+      historial[clave].push({ fechaMs, costo });
+    }
+    return Object.keys(historial).length ? historial : null;
+  }
+
+  // De todos los pedidos cargados para un producto, el que tenga la fecha más cercana
+  // (en cualquier dirección) a la fecha de la venta puntual.
+  function costoMasCercano(historialProducto, fechaVentaMs){
+    if (!historialProducto || !historialProducto.length || fechaVentaMs == null) return null;
+    let mejor = historialProducto[0], mejorDiff = Math.abs(historialProducto[0].fechaMs - fechaVentaMs);
+    for (const entrada of historialProducto){
+      const diff = Math.abs(entrada.fechaMs - fechaVentaMs);
+      if (diff < mejorDiff){ mejorDiff = diff; mejor = entrada; }
+    }
+    return mejor.costo;
+  }
+
   function gastosGrupalesDesdeFilas(filas){
     if (!filas || filas.length === 0) return null;
     const encabezado = filas[0].map(c => String(c).trim());
@@ -787,6 +830,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const tableTit = await fetchHojaJSON(sheetId, 'TITULARES');
     const { titulares, vendedores } = titularesDesdeFilas(tablaAAOA(tableTit));
 
+    // Historial de costos por fecha (hoja PEDIDOS): opcional — si no está, cada producto
+    // sigue usando el costo único y actual de TITULARES, como siempre.
+    let pedidos = null;
+    try {
+      const tablePedidos = await fetchHojaJSON(sheetId, 'PEDIDOS');
+      pedidos = pedidosDesdeFilas(tablaAAOA(tablePedidos));
+    } catch (e) { /* sin esta hoja, se sigue con el costo único de TITULARES */ }
+
     // Gastos mensuales grupales: opcional — si la hoja todavía no existe en el Google Sheet,
     // el reporte sigue funcionando igual que siempre, solo sin la línea de "Ganancia real final".
     let gastosGrupales = null;
@@ -815,7 +866,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       } catch (e) { /* esta hoja de zona no está o no es accesible — se sigue con las demás */ }
     }
 
-    return { mapping, suplentes, titulares, vendedores, gastosGrupales, logisticaPorCP };
+    return { mapping, suplentes, titulares, vendedores, pedidos, gastosGrupales, logisticaPorCP };
   }
 
   // "devolveremos": cubre el caso de "no pudimos entregar el producto, te lo devolveremos"
@@ -868,10 +919,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   // Google devuelve las celdas de tipo fecha como "Date(AAAA,MM,DD)" (mes 0-indexado) —
-  // se usa para las fechas Desde/Hasta del Suplente en MAPPING. Si la columna no está
-  // tipada como fecha y viene como texto DD/MM/AAAA, cae al mismo parser que usa Envíos.
+  // se usa para las fechas Desde/Hasta del Suplente en MAPPING, y para la fecha de cada
+  // pedido en PEDIDOS. Si llega como número (serial de fecha de Excel) o como texto
+  // DD/MM/AAAA, también se soporta.
   function parsearFechaGviz(v){
     if (esVacio(v)) return null;
+    if (typeof v === 'number'){
+      const ms = Math.round((v - 25569) * 86400 * 1000);
+      return isNaN(ms) ? null : ms;
+    }
     const s = String(v).trim();
     const m = s.match(/^Date\((\d+),(\d+),(\d+)/);
     if (m){
@@ -1286,7 +1342,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   function combinarVentasYCostos(filas, desglosePresentes, costos, personaSeleccionada){
-    const { mapping, suplentes, titulares, vendedores } = costos;
+    const { mapping, suplentes, titulares, vendedores, pedidos } = costos;
     const sinMapeo = new Set();
     const sinCosto = new Set();
 
@@ -1295,9 +1351,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const producto = mapping[key];
       f["Producto"] = producto || null;
       if (!producto) { sinMapeo.add(f["Título de la publicación"]); continue; }
-      const costo = titulares[normalizar(producto)];
-      f["_costo"] = (costo === undefined || isNaN(costo)) ? null : costo;
+
+      // Costo de ESTA venta puntual: primero se busca en el historial de PEDIDOS (el
+      // costo más cercano a la fecha de la venta, para que ventas viejas no usen el costo
+      // de hoy); si el producto no tiene pedidos cargados, se cae al costo único y
+      // actual de TITULARES, como siempre.
+      const historialProducto = pedidos && pedidos[normalizar(producto)];
+      let costo = historialProducto ? costoMasCercano(historialProducto, parsearFechaVenta(f["Fecha de venta"])) : null;
+      if (costo == null){
+        const costoTitular = titulares[normalizar(producto)];
+        costo = (costoTitular === undefined || isNaN(costoTitular)) ? null : costoTitular;
+      }
+      f["_costo"] = costo;
       if (f["_costo"] === null) sinCosto.add(producto);
+
       // Suplente: aplica a nivel PRODUCTO (todas sus publicaciones), no a una publicación
       // puntual — préstamo momentáneo entre vendedores. Si tiene rango de fechas cargado,
       // solo pisa al titular real dentro de ese rango; sin fechas, aplica siempre.
@@ -1322,7 +1389,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       // producto; si no hay ninguno de los dos, se asume que es del que genera el reporte.
       const dueño = f["_suplente"] || vendedorCargado || personaSeleccionada;
       const clave = f["Producto"] + '⟩' + dueño;
-      if (!grupos[clave]) grupos[clave] = { producto: f["Producto"], dueño, ventas: [], costo: f["_costo"] };
+      if (!grupos[clave]) grupos[clave] = { producto: f["Producto"], dueño, ventas: [] };
       grupos[clave].ventas.push(f);
     }
 
@@ -1351,7 +1418,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       }
     }
 
-    const resumenCompleto = Object.values(grupos).map(({ producto, dueño, ventas, costo }) => {
+    const resumenCompleto = Object.values(grupos).map(({ producto, dueño, ventas }) => {
       const unidades = ventas.reduce((s, v) => s + v["Unidades"], 0);
       const totalSum = ventas.reduce((s, v) => s + v["Total (ARS)"], 0);
       const ingresosSum = ventas.reduce((s, v) => s + v["Ingresos por productos (ARS)"], 0);
@@ -1360,6 +1427,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       // cualquier producto con ventas de más de una unidad).
       const ventaProm = unidades ? ingresosSum / unidades : null;
       const ingresoNeto = totalSum / unidades;
+      // Costo ponderado: cada venta puede tener un costo distinto (el vigente en SU fecha,
+      // según PEDIDOS) — se promedia por unidad, igual criterio que Venta promedio, para
+      // que el costo mostrado sea representativo de todo el período del reporte.
+      const conCosto = ventas.filter(v => v["_costo"] != null);
+      const unidadesConCosto = conCosto.reduce((s, v) => s + v["Unidades"], 0);
+      const costo = unidadesConCosto ? conCosto.reduce((s, v) => s + v["_costo"] * v["Unidades"], 0) / unidadesConCosto : null;
       const gananciaNeta = costo == null ? null : ingresoNeto - costo;
       // % Ganancia = Ganancia neta ÷ Venta promedio (mismo criterio que la fórmula real
       // de Excel, columna H — antes acá dividía por Ingreso neto y no coincidía)
