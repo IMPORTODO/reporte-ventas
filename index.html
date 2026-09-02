@@ -769,14 +769,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   // De todos los pedidos cargados para un producto, el que tenga la fecha más cercana
   // (en cualquier dirección) a la fecha de la venta puntual.
+  // De todos los pedidos cargados para un producto, el más reciente que sea ANTERIOR O
+  // IGUAL a la fecha de la venta — nunca uno posterior. Un pedido hecho después de la
+  // venta es stock que todavía no existía en ese momento, así que no pudo ser el que se
+  // vendió (aunque esté cronológicamente más "cerca" en el tiempo). Si la venta es
+  // anterior a todos los pedidos cargados, no hay ninguno que aplique — se cae al costo
+  // único de TITULARES (ver combinarVentasYCostos).
   function costoMasCercano(historialProducto, fechaVentaMs){
     if (!historialProducto || !historialProducto.length || fechaVentaMs == null) return null;
-    let mejor = historialProducto[0], mejorDiff = Math.abs(historialProducto[0].fechaMs - fechaVentaMs);
+    let mejor = null, mejorFecha = -Infinity;
     for (const entrada of historialProducto){
-      const diff = Math.abs(entrada.fechaMs - fechaVentaMs);
-      if (diff < mejorDiff){ mejorDiff = diff; mejor = entrada; }
+      if (entrada.fechaMs <= fechaVentaMs && entrada.fechaMs > mejorFecha){
+        mejorFecha = entrada.fechaMs;
+        mejor = entrada;
+      }
     }
-    return mejor.costo;
+    return mejor ? mejor.costo : null;
   }
 
   function gastosGrupalesDesdeFilas(filas){
