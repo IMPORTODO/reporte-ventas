@@ -439,24 +439,52 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   // Meses (nombre en español) cubiertos por las ventas cargadas — para buscar la fila
   // correspondiente en Gastos grupales.
+  // Determina qué mes/es cubre el reporte, y qué PROPORCIÓN de cada uno — si el reporte
+  // solo tiene ventas de los últimos días de agosto y los primeros de septiembre, no hay
+  // que sumar el gasto grupal COMPLETO de los dos meses (eso duplicaría gasto que no
+  // corresponde a este período); se prorratea por la cantidad de días reales cubiertos.
   function mesesDeVentas(cuentas){
-    const set = new Set();
+    let minMs = Infinity, maxMs = -Infinity;
     for (const c of cuentas){
       for (const f of c.filas){
         const ms = parsearFechaVenta(f['Fecha de venta']);
         if (ms == null) continue;
-        set.add(MESES_LISTA_ES[new Date(ms).getMonth()]);
+        if (ms < minMs) minMs = ms;
+        if (ms > maxMs) maxMs = ms;
       }
     }
-    return [...set];
+    if (!isFinite(minMs) || !isFinite(maxMs)) return [];
+
+    const fechaMin = new Date(minMs);
+    const fechaMax = new Date(maxMs);
+    const MS_DIA = 24 * 60 * 60 * 1000;
+
+    const resultado = [];
+    let cursor = new Date(fechaMin.getFullYear(), fechaMin.getMonth(), 1);
+    const finRango = new Date(fechaMax.getFullYear(), fechaMax.getMonth(), 1);
+    while (cursor <= finRango){
+      const año = cursor.getFullYear(), mesIdx = cursor.getMonth();
+      const primerDiaMes = new Date(año, mesIdx, 1);
+      const ultimoDiaMes = new Date(año, mesIdx + 1, 0); // día 0 del mes siguiente = último día de este mes
+      const diasEnMes = ultimoDiaMes.getDate();
+
+      const inicioInterseccion = primerDiaMes > fechaMin ? primerDiaMes : new Date(fechaMin.getFullYear(), fechaMin.getMonth(), fechaMin.getDate());
+      const finInterseccion = ultimoDiaMes < fechaMax ? ultimoDiaMes : new Date(fechaMax.getFullYear(), fechaMax.getMonth(), fechaMax.getDate());
+      const diasCubiertos = Math.round((finInterseccion - inicioInterseccion) / MS_DIA) + 1;
+
+      resultado.push({ mes: MESES_LISTA_ES[mesIdx], proporcion: Math.min(1, Math.max(0, diasCubiertos / diasEnMes)), diasCubiertos, diasEnMes });
+      cursor = new Date(año, mesIdx + 1, 1);
+    }
+    return resultado;
   }
 
   // Suma los gastos grupales que correspondan según qué cuenta(s) eligió el usuario
-  // (cuenta principal, secundaria, o ambas) y el/los mes/es cubiertos por las ventas.
-  // Si el período del reporte no tiene datos propios cargados (ej: reporte de un mes
-  // anterior a cuando se empezó a llevar la planilla), se completa con el promedio de
-  // los meses que sí están cargados — así los gastos siguen siendo un número real en la
-  // rentabilidad final, en vez de faltar directamente.
+  // (cuenta principal, secundaria, o ambas) y el/los mes/es cubiertos por las ventas —
+  // cada mes prorrateado por la proporción de días que el reporte realmente cubre de ese
+  // mes (ver mesesDeVentas). Si el período del reporte no tiene datos propios cargados
+  // (ej: reporte de un mes anterior a cuando se empezó a llevar la planilla), se completa
+  // con el promedio de los meses que sí están cargados — así los gastos siguen siendo un
+  // número real en la rentabilidad final, en vez de faltar directamente.
   function calcularGastosGrupales(gastosGrupales, dueño, cuentasSeleccionadas, meses){
     if (!gastosGrupales) return null;
     const par = CUENTAS_C1_C2[dueño];
@@ -486,18 +514,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const resultado = { insumos: 0, externos: 0, roturas: 0, impositivos: 0 };
     let algunoEncontrado = false;
     let algunoPromediado = false;
-    for (const mes of meses){
+    for (const { mes, proporcion } of meses){
       const datosMes = filaMiembro[normalizar(mes)];
       if (datosMes){
         algunoEncontrado = true;
         CATEGORIAS.forEach(cat => {
-          if (incluirC1) resultado[cat] += datosMes[cat].c1;
-          if (incluirC2) resultado[cat] += datosMes[cat].c2;
+          if (incluirC1) resultado[cat] += datosMes[cat].c1 * proporcion;
+          if (incluirC2) resultado[cat] += datosMes[cat].c2 * proporcion;
         });
       } else if (promedioPorMes){
         // Sin datos de este mes puntual — se completa con el promedio de los meses cargados
         algunoPromediado = true;
-        CATEGORIAS.forEach(cat => { resultado[cat] += promedioPorMes[cat]; });
+        CATEGORIAS.forEach(cat => { resultado[cat] += promedioPorMes[cat] * proporcion; });
       }
     }
     if (!algunoEncontrado && !algunoPromediado) return null;
@@ -595,6 +623,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         "Costo flex": null,
         "Unidades": unidades,
         "Ingresos por productos (ARS)": ingresos,
+        // Copia de "Ingresos por productos" usada SOLO para calcular rentabilidad
+        // (Venta promedio) — si el usuario elige descontar el costo de cuotas, se ajusta
+        // ACÁ, dejando "Ingresos por productos (ARS)" intacto para la facturación fiscal.
+        "_ventaAjustadaCuotas": ingresos,
         "Descuentos y bonificaciones": esVacio(descuentos) ? null : parseFloat(descuentos),
         "Total (ARS)": totalOriginal,
         "Venta por unidad": unidades ? ingresos / unidades : null,
@@ -1290,7 +1322,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     let aplicados = 0;
     for (const f of filas){
       if (f['Costo por ofrecer cuotas'] != null && f['Costo por ofrecer cuotas'] !== 0){
-        f['Ingresos por productos (ARS)'] = f['Ingresos por productos (ARS)'] + f['Costo por ofrecer cuotas'];
+        f['_ventaAjustadaCuotas'] = f['_ventaAjustadaCuotas'] + f['Costo por ofrecer cuotas'];
         aplicados += 1;
       }
     }
@@ -1419,6 +1451,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       // El suplente de esta publicación puntual manda por sobre el titular general del
       // producto; si no hay ninguno de los dos, se asume que es del que genera el reporte.
       const dueño = f["_suplente"] || vendedorCargado || personaSeleccionada;
+      f["_duenoEfectivo"] = dueño;
       const clave = f["Producto"] + '⟩' + dueño;
       if (!grupos[clave]) grupos[clave] = { producto: f["Producto"], dueño, ventas: [] };
       grupos[clave].ventas.push(f);
@@ -1444,6 +1477,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       for (const v of sinPrecio){
         ventasPrecioCorregido.push({ idVenta: v["# de venta"], producto: grupo.producto, fecha: v["Fecha de venta"], montoAsignado: ingresoPorUnidad * v["Unidades"] });
         v["Ingresos por productos (ARS)"] = ingresoPorUnidad * v["Unidades"];
+        v["_ventaAjustadaCuotas"] = ingresoPorUnidad * v["Unidades"];
         v["Total (ARS)"] = totalPorUnidad * v["Unidades"];
         v["Venta por unidad"] = v["Unidades"] ? ingresoPorUnidad : null;
       }
@@ -1452,7 +1486,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const resumenCompleto = Object.values(grupos).map(({ producto, dueño, ventas }) => {
       const unidades = ventas.reduce((s, v) => s + v["Unidades"], 0);
       const totalSum = ventas.reduce((s, v) => s + v["Total (ARS)"], 0);
-      const ingresosSum = ventas.reduce((s, v) => s + v["Ingresos por productos (ARS)"], 0);
+      // "_ventaAjustadaCuotas" es igual a "Ingresos por productos (ARS)" salvo que el
+      // usuario haya elegido descontar el costo de cuotas — esa elección solo afecta la
+      // rentabilidad analítica (acá), nunca la facturación fiscal (Análisis general).
+      const ingresosSum = ventas.reduce((s, v) => s + v["_ventaAjustadaCuotas"], 0);
       // Promedio ponderado por unidad real — una venta de 3 unidades pesa 3, no 1 (antes
       // se dividía por cantidad de VENTAS, no de unidades, e inflaba el promedio de
       // cualquier producto con ventas de más de una unidad).
@@ -1528,14 +1565,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const headers = [
       '# de venta', 'Fecha de venta', 'Estado', 'Costo flex', 'Unidades', 'Ingresos por productos (ARS)',
       ...desglosePresentes, 'Descuentos y bonificaciones', 'Total (ARS)', 'Venta por unidad',
-      'Título de la publicación', 'Producto'
+      'Título de la publicación', 'Producto', 'Venta ajustada (rentabilidad)', 'Dueño'
     ];
     const col = {};
     headers.forEach((h, i) => col[h] = i + 1);
     headerRow(ws, headers);
 
     const moneyCols = new Set(['Costo flex', 'Ingresos por productos (ARS)', 'Descuentos y bonificaciones',
-      'Total (ARS)', 'Venta por unidad', ...desglosePresentes]);
+      'Total (ARS)', 'Venta por unidad', 'Venta ajustada (rentabilidad)', ...desglosePresentes]);
 
     const fCol = colLetter(col['Ingresos por productos (ARS)']);
     const uCol = colLetter(col['Unidades']);
@@ -1551,6 +1588,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           cell.numFmt = '@';
         } else if (h === 'Producto'){
           cell.value = f['Producto'] || '';
+        } else if (h === 'Venta ajustada (rentabilidad)'){
+          // Igual a "Ingresos por productos" salvo que se haya elegido descontar el costo
+          // de cuotas — usada SOLO para Venta promedio/rentabilidad, nunca para facturación.
+          cell.value = f['_ventaAjustadaCuotas'];
+        } else if (h === 'Dueño'){
+          // Vendedor real de ESTA venta puntual (respeta el préstamo por Suplente) — se usa
+          // para separar facturación propia/ajena directo, sin pasar por Venta promedio.
+          cell.value = f['_duenoEfectivo'] || '';
         } else {
           cell.value = f[h] === undefined ? null : f[h];
         }
@@ -1564,7 +1609,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     const anchos = { '# de venta': 18, 'Fecha de venta': 22, 'Estado': 16, 'Costo flex': 11, 'Unidades': 9,
       'Ingresos por productos (ARS)': 15, 'Descuentos y bonificaciones': 13, 'Total (ARS)': 13,
-      'Venta por unidad': 13, 'Título de la publicación': 46, 'Producto': 40 };
+      'Venta por unidad': 13, 'Título de la publicación': 46, 'Producto': 40,
+      'Venta ajustada (rentabilidad)': 16, 'Dueño': 14 };
     headers.forEach(h => { ws.getColumn(col[h]).width = anchos[h] || 14; });
 
     ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
@@ -1592,7 +1638,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const porFuente = fuentes.map(f => {
       const rango = (campo) => `'${f.nombreHoja}'!$${colLetter(f.col[campo])}$2:$${colLetter(f.col[campo])}$${f.n + 1}`;
       const rProducto = rango('Producto'), rUnidades = rango('Unidades'),
-            rIngresos = rango('Ingresos por productos (ARS)'), rTotal = rango('Total (ARS)'), rEstado = rango('Estado');
+            // "Venta ajustada (rentabilidad)" en vez de "Ingresos por productos (ARS)" —
+            // así, si el usuario eligió descontar el costo de cuotas, esto se ve reflejado
+            // en Venta promedio/% Ganancia sin tocar la facturación fiscal (Análisis general).
+            rIngresos = rango('Venta ajustada (rentabilidad)'), rTotal = rango('Total (ARS)'), rEstado = rango('Estado');
       const noExcluida = `${rEstado},"<>*cancelad*",${rEstado},"<>*devoluc*",${rEstado},"<>*devuelto*",${rEstado},"<>*devolveremos*"`;
       return { rProducto, rUnidades, rIngresos, rTotal, noExcluida };
     });
@@ -1885,7 +1934,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   }
 
-  function construirAnalitica(wb, fuentes, terceros, bloquePrincipal, persona, gastoGrupalInfo){
+  function construirAnalitica(wb, fuentes, terceros, bloquePrincipal, persona, gastoGrupalInfo, dueño){
     const ws = wb.addWorksheet('Análisis general');
     ws.getColumn(1).width = 46;
     ws.getColumn(2).width = 20;
@@ -1905,7 +1954,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const rango = (campo) => `'${f.nombreHoja}'!$${colLetter(f.col[campo])}$2:$${colLetter(f.col[campo])}$${f.n + 1}`;
       const rTotal = rango('Total (ARS)'), rEstado = rango('Estado'),
             rIngresos = rango('Ingresos por productos (ARS)'), rProducto = rango('Producto'),
-            rCostoFlex = rango('Costo flex');
+            rCostoFlex = rango('Costo flex'), rDueño = rango('Dueño');
+      // Opcional — no todos los archivos de ventas traen esta columna
+      const rCostoCuotas = f.col['Costo por ofrecer cuotas'] ? rango('Costo por ofrecer cuotas') : null;
       const noExcluida = `${rEstado},"<>*cancelad*",${rEstado},"<>*devoluc*",${rEstado},"<>*devuelto*",${rEstado},"<>*devolveremos*"`;
       // Para "Facturación final": solo se excluyen las canceladas (factura anulada según
       // Meli). En mediación/devolución la factura sigue vigente hasta que se resuelva, así
@@ -1914,7 +1965,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const esCancelOSearch = (palabra) => `ISNUMBER(SEARCH("${palabra}",${rEstado}))`;
       const cualquierExcluida = `((${esCancelOSearch('cancelad')}+${esCancelOSearch('devoluc')}+${esCancelOSearch('devuelto')}+${esCancelOSearch('devolveremos')})>0)`;
       const esMiProducto = `(COUNTIF('${NOMBRE_HOJA_RESUMEN}'!$A$${bloquePrincipal.primeraFilaDatos}:$A$${bloquePrincipal.ultimaFilaDatos},${rProducto})>0)`;
-      return { rTotal, rIngresos, rCostoFlex, noExcluida, noCancelada, cualquierExcluida, esMiProducto };
+      return { rTotal, rIngresos, rCostoFlex, rDueño, rCostoCuotas, noExcluida, noCancelada, cualquierExcluida, esMiProducto };
     });
     const suma = (partes) => partes.length === 1 ? partes[0] : `(${partes.join('+')})`;
 
@@ -1923,16 +1974,41 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const ingresoFinalF = suma(porFuente.map(pf => `SUMIFS(${pf.rTotal},${pf.noExcluida})`));
     const impactoDevolF = suma(porFuente.map(pf => `SUMPRODUCT(${pf.cualquierExcluida}*${pf.esMiProducto}*${pf.rTotal})`));
     const flexPagadoF = '-' + suma(porFuente.map(pf => `SUM(${pf.rCostoFlex})`));
-    // Desglose de FACTURACIÓN (bruta) propio/ajeno — usa "Venta promedio" (columna D, precio bruto),
-    // no "Ingreso neto" (columna E, que ya tiene comisiones/flex descontados)
-    const propioFacturacionF = `SUMPRODUCT(${rResumenD},${rResumenC})`;
-    const nombresTerceros = Object.keys(terceros.subtotales);
-    const ajenoFacturacionF = nombresTerceros.length
-      ? nombresTerceros.map(n => {
-          const t = terceros.subtotales[n];
-          return `SUMPRODUCT(Terceros!D${t.primeraFilaDatos}:D${t.ultimaFilaDatos},Terceros!C${t.primeraFilaDatos}:C${t.ultimaFilaDatos})`;
-        }).join('+')
-      : '0';
+    // Cuadro informativo de cuotas: cantidad total de ventas, cuántas fueron en cuotas, y
+    // cuánto de la facturación es "de más" por el costo de cuotas que Meli te descuenta
+    // aparte — puramente informativo, no participa de ningún cálculo de arriba.
+    const cantidadVentasTotalF = suma(porFuente.map(pf => `COUNTA(${pf.rTotal})`));
+    const cantidadVentasCuotasF = suma(porFuente.map(pf => pf.rCostoCuotas ? `COUNTIF(${pf.rCostoCuotas},"<0")` : '0'));
+    const importeExtraCuotasF = '-' + suma(porFuente.map(pf => pf.rCostoCuotas ? `SUM(${pf.rCostoCuotas})` : '0'));
+    // Desglose de FACTURACIÓN (bruta) propio/ajeno — filtra directo por la columna "Dueño"
+    // de cada venta (respeta el préstamo por Suplente) sobre "Ingresos por productos"
+    // ORIGINAL, sin pasar por Venta promedio — así el descuento de cuotas (que si se activa
+    // solo ajusta Venta promedio, para no inflar la rentabilidad analítica) nunca afecta
+    // este número, que tiene que reflejar la facturación real/fiscal.
+    const propioFacturacionF = suma(porFuente.map(pf => `SUMIFS(${pf.rIngresos},${pf.noExcluida},${pf.rDueño},"${dueño}")`));
+    const ajenoFacturacionF = suma(porFuente.map(pf => `SUMIFS(${pf.rIngresos},${pf.noExcluida},${pf.rDueño},"<>${dueño}",${pf.rDueño},"<>")`));
+
+    // ---- Cuadro informativo de cuotas (a la derecha, columna D) — puramente informativo ----
+    ws.getColumn(4).width = 34;
+    ws.getColumn(5).width = 16;
+    const cuadroCuotas = [
+      ['Cantidad de ventas totales', { formula: cantidadVentasTotalF }, FMT_INT],
+      ['Cantidad de ventas en cuotas', { formula: cantidadVentasCuotasF }, FMT_INT],
+      ['Importe extra de facturación por agregar cuotas', { formula: importeExtraCuotasF }, FMT_MONEY],
+    ];
+    cuadroCuotas.forEach((fila, i) => {
+      const r = 3 + i;
+      const cLabel = ws.getCell(r, 4);
+      cLabel.value = fila[0];
+      cLabel.font = { name: FONT, size: 9.5, color: { argb: 'FF746B5C' } };
+      cLabel.border = BORDER;
+      const cVal = ws.getCell(r, 5);
+      cVal.value = fila[1];
+      cVal.font = { name: FONT, size: 10, bold: true };
+      cVal.numFmt = fila[2];
+      cVal.alignment = { horizontal: 'center' };
+      cVal.border = BORDER;
+    });
 
     // ---- Helpers de layout ----
     function seccionHeader(fila, texto, fillColor, fontColor){
@@ -2315,7 +2391,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   //           gastoGrupalInfo: { monto, mesesTexto } | null }
   async function construirReporte(input){
     const wb = new ExcelJS.Workbook();
-    const { persona, cuentas, unificado, gastoGrupalInfo, ventasFlexPromedioDirecto } = input;
+    const { persona, dueño, cuentas, unificado, gastoGrupalInfo, ventasFlexPromedioDirecto } = input;
     const multi = cuentas.length > 1;
 
     const fuentes = cuentas.map(c => {
@@ -2346,7 +2422,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const resumenTercerosFinal = multi ? unificado.resumenTerceros : cuentas[0].resumenTerceros;
     const terceros = construirTerceros(wb, resumenTercerosFinal, fuentes, persona);
 
-    const wsAnalitica = construirAnalitica(wb, fuentes, terceros, bloquePrincipal, persona, gastoGrupalInfo);
+    const wsAnalitica = construirAnalitica(wb, fuentes, terceros, bloquePrincipal, persona, gastoGrupalInfo, dueño);
 
     let ventasFlexPromedio = ventasFlexPromedioDirecto || null;
     if (input.existencias){
@@ -2765,10 +2841,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const meses = mesesDeVentas(cuentas);
       const desgloseGasto = calcularGastosGrupales(costos.gastosGrupales, op.dueño, op.cuentas, meses);
       if (desgloseGasto != null){
-        gastoGrupalInfo = { ...desgloseGasto, mesesTexto: meses.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(' + ') };
+        const mesesTexto = meses.map(m => {
+          const nombre = m.mes.charAt(0).toUpperCase() + m.mes.slice(1);
+          return m.proporcion < 0.999 ? `${nombre} (${m.diasCubiertos}/${m.diasEnMes} días)` : nombre;
+        }).join(' + ');
+        gastoGrupalInfo = { ...desgloseGasto, mesesTexto };
       }
 
-      const buffer = await construirReporte({ persona: op.label, cuentas, unificado, existencias, gastoGrupalInfo, ventasFlexPromedioDirecto });
+      const buffer = await construirReporte({ persona: op.label, dueño: op.dueño, cuentas, unificado, existencias, gastoGrupalInfo, ventasFlexPromedioDirecto });
 
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const rango = calcularRangoFechas(cuentas);
