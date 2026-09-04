@@ -290,11 +290,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         </div>
       </div>
 
-      <div class="field step-hidden" id="campo-fecha-corte" style="margin-top:14px;">
-        <label for="fecha-corte">Fecha de corte (opcional)</label>
-        <input type="date" id="fecha-corte">
-        <p class="hint">Lo que se libera hasta esta fecha cuenta como "cobrado"; lo que se libera después, como "a cobrar". Si no la completás, se usa la fecha de tu última venta cargada. (Es una sola fecha, aunque uses dos cuentas.)</p>
-      </div>
 
       <button class="primary" id="process-btn" disabled>Generar reporte</button>
 
@@ -363,6 +358,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     <div class="modal-actions">
       <button type="button" class="btn-omitir" id="btn-flex-omitir">Continuar sin descontar</button>
       <button type="button" class="btn-continuar" id="btn-flex-continuar">Aplicar y continuar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop step-hidden" id="modal-cuotas">
+  <div class="modal-box">
+    <h3>¿Descontar el costo de cuotas de la rentabilidad?</h3>
+    <p class="hint">Hay ventas pagadas en cuotas en este archivo. Ese costo infla el "Precio de venta" con un margen que en los hechos no queda, y hace parecer menos rentable al producto. Si descontás ese costo, vas a ver una rentabilidad por producto más real — la ganancia total del reporte no cambia, solo cómo se reparte entre productos.</p>
+    <div class="modal-actions">
+      <button type="button" class="btn-omitir" id="btn-cuotas-no">No, dejar como está</button>
+      <button type="button" class="btn-continuar" id="btn-cuotas-si">Sí, descontarlo</button>
     </div>
   </div>
 </div>
@@ -1268,6 +1274,23 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (f['Descuentos y bonificaciones'] != null){
         f['Costo flex'] = -montoManual;
         f['Total (ARS)'] = f['Total (ARS)'] - montoManual;
+        aplicados += 1;
+      }
+    }
+    return aplicados;
+  }
+
+  // Cuando una venta se paga en cuotas, Meli le cobra al vendedor un costo aparte (esta
+  // columna, ya viene en negativo) que infla "Ingresos por productos" con un margen que en
+  // los hechos no queda — distorsiona el promedio de venta y el % de rentabilidad de ese
+  // producto hacia abajo, aunque la ganancia real (Total ARS, que no se toca acá) sea
+  // parecida a una venta en efectivo. Es opcional porque el usuario puede preferir ver la
+  // rentabilidad "cruda" tal cual la reporta Meli.
+  function aplicarCostoCuotas(filas){
+    let aplicados = 0;
+    for (const f of filas){
+      if (f['Costo por ofrecer cuotas'] != null && f['Costo por ofrecer cuotas'] !== 0){
+        f['Ingresos por productos (ARS)'] = f['Ingresos por productos (ARS)'] + f['Costo por ofrecer cuotas'];
         aplicados += 1;
       }
     }
@@ -2389,8 +2412,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const zoneLabel2 = document.getElementById('zone-label-2');
   const zoneLabelSettlement = document.getElementById('zone-label-settlement');
   const zoneLabelSettlement2 = document.getElementById('zone-label-settlement2');
-  const campoFechaCorte = document.getElementById('campo-fecha-corte');
-  const fechaCorteInput = document.getElementById('fecha-corte');
 
   const personaSelect = document.getElementById('persona-select');
   OPCIONES_PERSONA.forEach(op => {
@@ -2411,12 +2432,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       zonaVentas2.classList.add('step-hidden');
       zonaSettlement.classList.add('step-hidden');
       zonaSettlement2.classList.add('step-hidden');
-      campoFechaCorte.classList.add('step-hidden');
       return;
     }
     zonaVentas1.classList.remove('step-hidden');
     zonaSettlement.classList.remove('step-hidden');
-    campoFechaCorte.classList.remove('step-hidden');
     const nombreCta1 = op.cuentas[0];
     zoneLabel1.innerHTML = `<span class="num">1</span> Ventas de ${nombreCta1}`;
     zonas.v1.defaultTitle = `Arrastrá el Excel de ${nombreCta1}`;
@@ -2495,6 +2514,27 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       }
       btnContinuar.addEventListener('click', onContinuar);
       btnOmitir.addEventListener('click', onOmitir);
+    });
+  }
+
+  // Pregunta si se descuenta el costo de cuotas del precio de venta antes de calcular la
+  // rentabilidad por producto. Devuelve true/false.
+  function mostrarModalCuotas(){
+    return new Promise((resolve) => {
+      const modal = document.getElementById('modal-cuotas');
+      const btnSi = document.getElementById('btn-cuotas-si');
+      const btnNo = document.getElementById('btn-cuotas-no');
+      modal.classList.remove('step-hidden');
+
+      function limpiar(){
+        modal.classList.add('step-hidden');
+        btnSi.removeEventListener('click', onSi);
+        btnNo.removeEventListener('click', onNo);
+      }
+      function onSi(){ limpiar(); resolve(true); }
+      function onNo(){ limpiar(); resolve(false); }
+      btnSi.addEventListener('click', onSi);
+      btnNo.addEventListener('click', onNo);
     });
   }
 
@@ -2591,11 +2631,29 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const preciosCorregidosTotal = [];
       const sinVendedorTotal = new Set();
 
+      // Primera pasada: leer todos los archivos de ventas antes de procesarlos — hace
+      // falta saber si hay ventas en cuotas ANTES de calcular la rentabilidad, para poder
+      // preguntar y aplicar el descuento a tiempo (si corresponde).
+      const leidosPorCuenta = [];
+      for (let i = 0; i < op.cuentas.length; i++){
+        const buf = await leerComoArrayBuffer(archivosPorCuenta[i]);
+        leidosPorCuenta.push(leerVentas(buf));
+      }
+
+      // Cuotas: si hay ventas pagadas en cuotas, se pregunta si se quiere descontar ese
+      // costo del precio de venta antes de calcular la rentabilidad por producto — evita
+      // que esas ventas parezcan menos rentables por un margen que en los hechos no queda.
+      const hayCuotas = leidosPorCuenta.some(l => l.filas.some(f => f['Costo por ofrecer cuotas'] != null && f['Costo por ofrecer cuotas'] !== 0));
+      if (hayCuotas){
+        const descontarCuotas = await mostrarModalCuotas();
+        if (descontarCuotas){
+          for (const l of leidosPorCuenta) aplicarCostoCuotas(l.filas);
+        }
+      }
+
       for (let i = 0; i < op.cuentas.length; i++){
         const nombreCuenta = op.cuentas[i];
-        const archivo = archivosPorCuenta[i];
-        const buf = await leerComoArrayBuffer(archivo);
-        const leido = leerVentas(buf);
+        const leido = leidosPorCuenta[i];
         todasFilasOriginales.push(leido.filas);
         todosDesglose.push(leido.desglosePresentes);
 
@@ -2663,15 +2721,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           cashbacks = cashbacks.concat(r2.cashbacks);
         }
 
-        let fechaCorte;
-        if (fechaCorteInput.value){
-          fechaCorte = new Date(fechaCorteInput.value + 'T23:59:59');
-        } else {
-          const ultimaVenta = obtenerUltimaFechaVenta(cuentas);
-          fechaCorte = ultimaVenta
-            ? new Date(ultimaVenta.getFullYear(), ultimaVenta.getMonth(), ultimaVenta.getDate(), 23, 59, 59)
-            : new Date();
-        }
+        const ultimaVenta = obtenerUltimaFechaVenta(cuentas);
+        const fechaCorte = ultimaVenta
+          ? new Date(ultimaVenta.getFullYear(), ultimaVenta.getMonth(), ultimaVenta.getDate(), 23, 59, 59)
+          : new Date();
         const promedioFlexReal = costos.logisticaPorCP ? promedioFlexPositivo(costos.logisticaPorCP) : 0;
         const cruce = cruzarMovimientosPago(movimientos, cashbacks, mapaSku, null, costos.logisticaPorCP, promedioFlexReal, fechaCorte, op.dueño, mapaVentasPorId, todasLasVentas);
         existencias = { cruce, fechaCorte, dueño: op.dueño };
@@ -2783,7 +2836,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     limpiarArchivo('v2');
     limpiarArchivo('settlement');
     limpiarArchivo('settlement2');
-    fechaCorteInput.value = '';
     personaSelect.value = '';
     actualizarZonasSegunPersona();
     ocultarError();
