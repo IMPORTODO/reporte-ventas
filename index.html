@@ -259,9 +259,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         </div>
       </div>
 
-      <div class="zone step-hidden" id="zona-settlement" style="margin-top:14px;">
-        <p class="zone-label" id="zone-label-settlement"><span class="num">+</span> Cobros (opcional)</p>
-        <p class="zone-hint" style="margin-bottom:8px;">Sumá el reporte "Cobros" de MercadoPago para agregar la hoja Existencias (plata cobrada y a cobrar, por vendedor).</p>
+      <div class="zone step-hidden" id="zona-ventas3" style="margin-top:14px;">
+        <p class="zone-label" id="zone-label-3"><span class="num">3</span> Ventas de la tercera cuenta</p>
+        <div class="dropzone" id="dz-ventas3" tabindex="0" role="button" aria-label="Elegir o arrastrar el Excel de ventas de la tercera cuenta">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <p class="dz-title" id="dz-title3">Arrastrá el Excel de la 3ra cuenta</p>
+          <p class="dz-sub" id="dz-sub3">o hacé clic para elegirlo · .xlsx</p>
+        </div>
+        <input type="file" id="input-ventas3" accept=".xlsx,.xls">
+        <div class="file-chip step-hidden" id="chip-ventas3">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.4"/><path d="M14 2v5h5" stroke="currentColor" stroke-width="1.4"/></svg>
+          <span class="name" id="name-ventas3">archivo.xlsx</span>
+          <button id="btn-quitar3" aria-label="Quitar archivo" type="button">&times;</button>
+        </div>
+      </div>
+
+      <details class="zone step-hidden" id="zona-settlement" style="margin-top:14px;">
+        <summary class="zone-label" id="zone-label-settlement" style="cursor:pointer;"><span class="chev"></span> ¿Querés agregar el reporte de Cobros? (opcional)</summary>
+        <p class="zone-hint" style="margin-bottom:8px; margin-top:10px;">Sumá el reporte "Cobros" de MercadoPago para agregar la hoja Existencias (plata cobrada y a cobrar, por vendedor).</p>
         <div class="dropzone" id="dz-settlement" tabindex="0" role="button" aria-label="Elegir o arrastrar el reporte de MercadoPago">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <p class="dz-title" id="dz-title-settlement">Arrastrá el reporte de MercadoPago</p>
@@ -288,7 +303,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             <button id="btn-quitar-settlement2" aria-label="Quitar archivo" type="button">&times;</button>
           </div>
         </div>
-      </div>
+
+        <div class="zone step-hidden" id="zona-settlement3" style="margin-top:12px;">
+          <p class="zone-label" id="zone-label-settlement3"><span class="num">+</span> Cobros de la tercera cuenta (opcional)</p>
+          <div class="dropzone" id="dz-settlement3" tabindex="0" role="button" aria-label="Elegir o arrastrar el reporte de MercadoPago de la tercera cuenta">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <p class="dz-title" id="dz-title-settlement3">Arrastrá el reporte de la 3ra cuenta</p>
+            <p class="dz-sub" id="dz-sub-settlement3">o hacé clic para elegirlo · .xlsx</p>
+          </div>
+          <input type="file" id="input-settlement3" accept=".xlsx,.xls">
+          <div class="file-chip step-hidden" id="chip-settlement3">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.4"/><path d="M14 2v5h5" stroke="currentColor" stroke-width="1.4"/></svg>
+            <span class="name" id="name-settlement3">archivo.xlsx</span>
+            <button id="btn-quitar-settlement3" aria-label="Quitar archivo" type="button">&times;</button>
+          </div>
+        </div>
+      </details>
 
 
       <button class="primary" id="process-btn" disabled>Generar reporte</button>
@@ -362,17 +392,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   </div>
 </div>
 
-<div class="modal-backdrop step-hidden" id="modal-cuotas">
-  <div class="modal-box">
-    <h3>¿Descontar el costo de cuotas de la rentabilidad?</h3>
-    <p class="hint">Hay ventas pagadas en cuotas en este archivo. Ese costo infla el "Precio de venta" con un margen que en los hechos no queda, y hace parecer menos rentable al producto. Si descontás ese costo, vas a ver una rentabilidad por producto más real — la ganancia total del reporte no cambia, solo cómo se reparte entre productos.</p>
-    <div class="modal-actions">
-      <button type="button" class="btn-omitir" id="btn-cuotas-no">No, dejar como está</button>
-      <button type="button" class="btn-continuar" id="btn-cuotas-si">Sí, descontarlo</button>
-    </div>
-  </div>
-</div>
-
 <script>
 (function(){
   // ---------- Utilidades comunes ----------
@@ -412,27 +431,42 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const ALIAS_VENDEDOR_TITULARES = ['vendedor', 'vendedores', 'dueño', 'dueno', 'titular'];
   // Cada persona principal puede tener una segunda cuenta (mismo dueño en TITULARES,
   // solo cambia con qué cuenta de Meli se vendió). AGUS no tiene segunda cuenta.
-  const OPCIONES_PERSONA = [
-    { value: 'SERGIO', label: 'SERGIO', dueño: 'SERGIO', cuentas: ['SERGIO'] },
-    { value: 'FERLAN', label: 'FERLAN', dueño: 'SERGIO', cuentas: ['FERLAN'] },
-    { value: 'SERGIO_FERLAN', label: 'SERGIO y FERLAN', dueño: 'SERGIO', cuentas: ['SERGIO', 'FERLAN'] },
-    { value: 'ANA', label: 'ANA', dueño: 'ANA', cuentas: ['ANA'] },
-    { value: 'EULOGIA', label: 'EULOGIA', dueño: 'ANA', cuentas: ['EULOGIA'] },
-    { value: 'ANA_EULOGIA', label: 'ANA y EULOGIA', dueño: 'ANA', cuentas: ['ANA', 'EULOGIA'] },
-    { value: 'SURAK', label: 'SURAK', dueño: 'SURAK', cuentas: ['SURAK'] },
-    { value: 'ADRICRIVE', label: 'ADRICRIVE', dueño: 'SURAK', cuentas: ['ADRICRIVE'] },
-    { value: 'SURAK_ADRICRIVE', label: 'SURAK y ADRICRIVE', dueño: 'SURAK', cuentas: ['SURAK', 'ADRICRIVE'] },
-    { value: 'AGUS', label: 'AGUS', dueño: 'AGUS', cuentas: ['AGUS'] },
-  ];
-
-  // Relación cuenta principal (C1) / secundaria (C2) por dueño — así sabemos, según qué
-  // cuenta(s) eligió el usuario, qué columnas de "Gastos grupales" corresponde sumar.
-  const CUENTAS_C1_C2 = {
-    SERGIO: { c1: 'SERGIO', c2: 'FERLAN' },
-    ANA: { c1: 'ANA', c2: 'EULOGIA' },
-    SURAK: { c1: 'SURAK', c2: 'ADRICRIVE' },
-    AGUS: { c1: 'AGUS', c2: null },
+  // Cuentas de cada dueño, en orden — de acá se generan TODAS las combinaciones posibles
+  // (individuales, pares, y el combo completo) para el desplegable de personas, y también
+  // se usa para saber qué columna (c1/c2/c3) de "Gastos grupales" corresponde a cada una.
+  const CUENTAS_POR_DUENO = {
+    SERGIO: ['SERGIO', 'FERLAN', 'A VIAJAR'],
+    ANA: ['ANA', 'EULOGIA'],
+    SURAK: ['SURAK', 'ADRICRIVE', 'ARMINDA'],
+    AGUS: ['AGUS'],
   };
+
+  // Todos los subconjuntos no vacíos de un array (orden estable, tamaño creciente) —
+  // usado para generar cada combinación posible de cuentas de un mismo dueño.
+  function subconjuntosNoVacios(arr){
+    if (arr.length === 0) return [];
+    const [primero, ...resto] = arr;
+    const sinPrimero = subconjuntosNoVacios(resto);
+    const conPrimero = [[primero], ...sinPrimero.map(c => [primero, ...c])];
+    return [...conPrimero, ...sinPrimero].sort((a, b) => a.length - b.length);
+  }
+
+  function generarOpcionesPersona(cuentasPorDueño){
+    const opciones = [];
+    for (const dueño in cuentasPorDueño){
+      for (const combo of subconjuntosNoVacios(cuentasPorDueño[dueño])){
+        opciones.push({
+          value: combo.map(c => c.replace(/\s+/g, '')).join('_'),
+          label: combo.join(' y '),
+          dueño,
+          cuentas: combo,
+        });
+      }
+    }
+    return opciones;
+  }
+
+  const OPCIONES_PERSONA = generarOpcionesPersona(CUENTAS_POR_DUENO);
 
   const MESES_LISTA_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
     'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -487,10 +521,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // número real en la rentabilidad final, en vez de faltar directamente.
   function calcularGastosGrupales(gastosGrupales, dueño, cuentasSeleccionadas, meses){
     if (!gastosGrupales) return null;
-    const par = CUENTAS_C1_C2[dueño];
-    if (!par) return null;
-    const incluirC1 = cuentasSeleccionadas.includes(par.c1);
-    const incluirC2 = par.c2 && cuentasSeleccionadas.includes(par.c2);
+    const cuentasDelDueño = CUENTAS_POR_DUENO[dueño];
+    if (!cuentasDelDueño) return null;
+    // Para cada cuenta del dueño (por posición: la 1ra es c1, la 2da c2, la 3ra c3), si el
+    // usuario la incluyó en este reporte.
+    const SLOTS = ['c1', 'c2', 'c3'];
+    const incluirPorSlot = cuentasDelDueño.map(cuenta => cuentasSeleccionadas.includes(cuenta));
     const filaMiembro = gastosGrupales[normalizar(dueño)];
     if (!filaMiembro) return null;
 
@@ -504,8 +540,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       promedioPorMes = { insumos: 0, externos: 0, roturas: 0, impositivos: 0 };
       for (const m of mesesCargados){
         CATEGORIAS.forEach(cat => {
-          if (incluirC1) promedioPorMes[cat] += filaMiembro[m][cat].c1;
-          if (incluirC2) promedioPorMes[cat] += filaMiembro[m][cat].c2;
+          SLOTS.forEach((slot, i) => { if (incluirPorSlot[i]) promedioPorMes[cat] += filaMiembro[m][cat][slot]; });
         });
       }
       CATEGORIAS.forEach(cat => { promedioPorMes[cat] /= mesesCargados.length; });
@@ -519,8 +554,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (datosMes){
         algunoEncontrado = true;
         CATEGORIAS.forEach(cat => {
-          if (incluirC1) resultado[cat] += datosMes[cat].c1 * proporcion;
-          if (incluirC2) resultado[cat] += datosMes[cat].c2 * proporcion;
+          SLOTS.forEach((slot, i) => { if (incluirPorSlot[i]) resultado[cat] += datosMes[cat][slot] * proporcion; });
         });
       } else if (promedioPorMes){
         // Sin datos de este mes puntual — se completa con el promedio de los meses cargados
@@ -623,10 +657,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         "Costo flex": null,
         "Unidades": unidades,
         "Ingresos por productos (ARS)": ingresos,
-        // Copia de "Ingresos por productos" usada SOLO para calcular rentabilidad
-        // (Venta promedio) — si el usuario elige descontar el costo de cuotas, se ajusta
-        // ACÁ, dejando "Ingresos por productos (ARS)" intacto para la facturación fiscal.
-        "_ventaAjustadaCuotas": ingresos,
         "Descuentos y bonificaciones": esVacio(descuentos) ? null : parseFloat(descuentos),
         "Total (ARS)": totalOriginal,
         "Venta por unidad": unidades ? ingresos / unidades : null,
@@ -832,10 +862,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const idxMes = encabezado.findIndex(h => normalizar(h) === 'mes');
     if (idxMiembro === -1 || idxMes === -1) return null;
 
-    const columnas = []; // { idx, categoria, cuenta: 'c1' | 'c2' }
+    const columnas = []; // { idx, categoria, cuenta: 'c1' | 'c2' | 'c3' }
     encabezado.forEach((h, i) => {
       const n = normalizar(h);
-      const m = n.match(/^(.*)\s+c([12])$/);
+      const m = n.match(/^(.*)\s+c([123])$/);
       if (m) columnas.push({ idx: i, categoria: categorizarGasto(m[1]), cuenta: 'c' + m[2] });
     });
     if (columnas.length === 0) return null;
@@ -846,7 +876,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const miembro = fila[idxMiembro];
       const mes = fila[idxMes];
       if (esVacio(miembro) || esVacio(mes)) continue;
-      const totales = { insumos: { c1: 0, c2: 0 }, externos: { c1: 0, c2: 0 }, roturas: { c1: 0, c2: 0 }, impositivos: { c1: 0, c2: 0 } };
+      const totales = { insumos: { c1: 0, c2: 0, c3: 0 }, externos: { c1: 0, c2: 0, c3: 0 }, roturas: { c1: 0, c2: 0, c3: 0 }, impositivos: { c1: 0, c2: 0, c3: 0 } };
       columnas.forEach(({ idx, categoria, cuenta }) => {
         totales[categoria][cuenta] += (parseFloat(fila[idx]) || 0);
       });
@@ -1312,23 +1342,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return aplicados;
   }
 
-  // Cuando una venta se paga en cuotas, Meli le cobra al vendedor un costo aparte (esta
-  // columna, ya viene en negativo) que infla "Ingresos por productos" con un margen que en
-  // los hechos no queda — distorsiona el promedio de venta y el % de rentabilidad de ese
-  // producto hacia abajo, aunque la ganancia real (Total ARS, que no se toca acá) sea
-  // parecida a una venta en efectivo. Es opcional porque el usuario puede preferir ver la
-  // rentabilidad "cruda" tal cual la reporta Meli.
-  function aplicarCostoCuotas(filas){
-    let aplicados = 0;
-    for (const f of filas){
-      if (f['Costo por ofrecer cuotas'] != null && f['Costo por ofrecer cuotas'] !== 0){
-        f['_ventaAjustadaCuotas'] = f['_ventaAjustadaCuotas'] + f['Costo por ofrecer cuotas'];
-        aplicados += 1;
-      }
-    }
-    return aplicados;
-  }
-
   // Última fecha de venta entre todas las cuentas cargadas — se usa como fecha de corte
   // por defecto cuando el usuario no eligió una.
   function obtenerUltimaFechaVenta(cuentas){
@@ -1477,7 +1490,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       for (const v of sinPrecio){
         ventasPrecioCorregido.push({ idVenta: v["# de venta"], producto: grupo.producto, fecha: v["Fecha de venta"], montoAsignado: ingresoPorUnidad * v["Unidades"] });
         v["Ingresos por productos (ARS)"] = ingresoPorUnidad * v["Unidades"];
-        v["_ventaAjustadaCuotas"] = ingresoPorUnidad * v["Unidades"];
         v["Total (ARS)"] = totalPorUnidad * v["Unidades"];
         v["Venta por unidad"] = v["Unidades"] ? ingresoPorUnidad : null;
       }
@@ -1486,10 +1498,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const resumenCompleto = Object.values(grupos).map(({ producto, dueño, ventas }) => {
       const unidades = ventas.reduce((s, v) => s + v["Unidades"], 0);
       const totalSum = ventas.reduce((s, v) => s + v["Total (ARS)"], 0);
-      // "_ventaAjustadaCuotas" es igual a "Ingresos por productos (ARS)" salvo que el
-      // usuario haya elegido descontar el costo de cuotas — esa elección solo afecta la
-      // rentabilidad analítica (acá), nunca la facturación fiscal (Análisis general).
-      const ingresosSum = ventas.reduce((s, v) => s + v["_ventaAjustadaCuotas"], 0);
+      const ingresosSum = ventas.reduce((s, v) => s + v["Ingresos por productos (ARS)"], 0);
       // Promedio ponderado por unidad real — una venta de 3 unidades pesa 3, no 1 (antes
       // se dividía por cantidad de VENTAS, no de unidades, e inflaba el promedio de
       // cualquier producto con ventas de más de una unidad).
@@ -1565,14 +1574,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const headers = [
       '# de venta', 'Fecha de venta', 'Estado', 'Costo flex', 'Unidades', 'Ingresos por productos (ARS)',
       ...desglosePresentes, 'Descuentos y bonificaciones', 'Total (ARS)', 'Venta por unidad',
-      'Título de la publicación', 'Producto', 'Venta ajustada (rentabilidad)', 'Dueño'
+      'Título de la publicación', 'Producto', 'Dueño'
     ];
     const col = {};
     headers.forEach((h, i) => col[h] = i + 1);
     headerRow(ws, headers);
 
     const moneyCols = new Set(['Costo flex', 'Ingresos por productos (ARS)', 'Descuentos y bonificaciones',
-      'Total (ARS)', 'Venta por unidad', 'Venta ajustada (rentabilidad)', ...desglosePresentes]);
+      'Total (ARS)', 'Venta por unidad', ...desglosePresentes]);
 
     const fCol = colLetter(col['Ingresos por productos (ARS)']);
     const uCol = colLetter(col['Unidades']);
@@ -1588,10 +1597,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           cell.numFmt = '@';
         } else if (h === 'Producto'){
           cell.value = f['Producto'] || '';
-        } else if (h === 'Venta ajustada (rentabilidad)'){
-          // Igual a "Ingresos por productos" salvo que se haya elegido descontar el costo
-          // de cuotas — usada SOLO para Venta promedio/rentabilidad, nunca para facturación.
-          cell.value = f['_ventaAjustadaCuotas'];
         } else if (h === 'Dueño'){
           // Vendedor real de ESTA venta puntual (respeta el préstamo por Suplente) — se usa
           // para separar facturación propia/ajena directo, sin pasar por Venta promedio.
@@ -1609,8 +1614,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     const anchos = { '# de venta': 18, 'Fecha de venta': 22, 'Estado': 16, 'Costo flex': 11, 'Unidades': 9,
       'Ingresos por productos (ARS)': 15, 'Descuentos y bonificaciones': 13, 'Total (ARS)': 13,
-      'Venta por unidad': 13, 'Título de la publicación': 46, 'Producto': 40,
-      'Venta ajustada (rentabilidad)': 16, 'Dueño': 14 };
+      'Venta por unidad': 13, 'Título de la publicación': 46, 'Producto': 40, 'Dueño': 14 };
     headers.forEach(h => { ws.getColumn(col[h]).width = anchos[h] || 14; });
 
     ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
@@ -1638,10 +1642,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const porFuente = fuentes.map(f => {
       const rango = (campo) => `'${f.nombreHoja}'!$${colLetter(f.col[campo])}$2:$${colLetter(f.col[campo])}$${f.n + 1}`;
       const rProducto = rango('Producto'), rUnidades = rango('Unidades'),
-            // "Venta ajustada (rentabilidad)" en vez de "Ingresos por productos (ARS)" —
-            // así, si el usuario eligió descontar el costo de cuotas, esto se ve reflejado
-            // en Venta promedio/% Ganancia sin tocar la facturación fiscal (Análisis general).
-            rIngresos = rango('Venta ajustada (rentabilidad)'), rTotal = rango('Total (ARS)'), rEstado = rango('Estado');
+            rIngresos = rango('Ingresos por productos (ARS)'), rTotal = rango('Total (ARS)'), rEstado = rango('Estado');
       const noExcluida = `${rEstado},"<>*cancelad*",${rEstado},"<>*devoluc*",${rEstado},"<>*devuelto*",${rEstado},"<>*devolveremos*"`;
       return { rProducto, rUnidades, rIngresos, rTotal, noExcluida };
     });
@@ -2463,6 +2464,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       defaultTitle: 'Arrastrá el Excel de la 2da cuenta', defaultSub: 'o hacé clic para elegirlo · .xlsx',
       archivo: null,
     },
+    v3: {
+      dz: document.getElementById('dz-ventas3'), input: document.getElementById('input-ventas3'),
+      chip: document.getElementById('chip-ventas3'), name: document.getElementById('name-ventas3'),
+      title: document.getElementById('dz-title3'), sub: document.getElementById('dz-sub3'),
+      btnQuitar: document.getElementById('btn-quitar3'),
+      defaultTitle: 'Arrastrá el Excel de la 3ra cuenta', defaultSub: 'o hacé clic para elegirlo · .xlsx',
+      archivo: null,
+    },
     settlement: {
       dz: document.getElementById('dz-settlement'), input: document.getElementById('input-settlement'),
       chip: document.getElementById('chip-settlement'), name: document.getElementById('name-settlement'),
@@ -2479,15 +2488,27 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       defaultTitle: 'Arrastrá el reporte de la 2da cuenta', defaultSub: 'o hacé clic para elegirlo · .xlsx',
       archivo: null,
     },
+    settlement3: {
+      dz: document.getElementById('dz-settlement3'), input: document.getElementById('input-settlement3'),
+      chip: document.getElementById('chip-settlement3'), name: document.getElementById('name-settlement3'),
+      title: document.getElementById('dz-title-settlement3'), sub: document.getElementById('dz-sub-settlement3'),
+      btnQuitar: document.getElementById('btn-quitar-settlement3'),
+      defaultTitle: 'Arrastrá el reporte de la 3ra cuenta', defaultSub: 'o hacé clic para elegirlo · .xlsx',
+      archivo: null,
+    },
   };
   const zonaVentas1 = document.getElementById('zona-ventas1');
   const zonaVentas2 = document.getElementById('zona-ventas2');
+  const zonaVentas3 = document.getElementById('zona-ventas3');
   const zonaSettlement = document.getElementById('zona-settlement');
   const zonaSettlement2 = document.getElementById('zona-settlement2');
+  const zonaSettlement3 = document.getElementById('zona-settlement3');
   const zoneLabel1 = document.getElementById('zone-label-1');
   const zoneLabel2 = document.getElementById('zone-label-2');
+  const zoneLabel3 = document.getElementById('zone-label-3');
   const zoneLabelSettlement = document.getElementById('zone-label-settlement');
   const zoneLabelSettlement2 = document.getElementById('zone-label-settlement2');
+  const zoneLabelSettlement3 = document.getElementById('zone-label-settlement3');
 
   const personaSelect = document.getElementById('persona-select');
   OPCIONES_PERSONA.forEach(op => {
@@ -2503,38 +2524,54 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   function actualizarZonasSegunPersona(){
     const op = opcionActual();
+    const zonasVentas = [zonaVentas1, zonaVentas2, zonaVentas3];
+    const zoneLabelsVentas = [zoneLabel1, zoneLabel2, zoneLabel3];
+    const clavesVentas = ['v1', 'v2', 'v3'];
+    const zonasCobros = [zonaSettlement2, zonaSettlement3]; // la 1ra (zonaSettlement) siempre visible si hay persona
+    const zoneLabelsCobros = [zoneLabelSettlement2, zoneLabelSettlement3];
+    const clavesCobros = ['settlement2', 'settlement3'];
+
     if (!op){
-      zonaVentas1.classList.add('step-hidden');
-      zonaVentas2.classList.add('step-hidden');
+      zonasVentas.forEach(z => z.classList.add('step-hidden'));
       zonaSettlement.classList.add('step-hidden');
-      zonaSettlement2.classList.add('step-hidden');
+      zonasCobros.forEach(z => z.classList.add('step-hidden'));
       return;
     }
-    zonaVentas1.classList.remove('step-hidden');
+
+    // Ventas: una zona por cada cuenta seleccionada (1 a 3), el resto ocultas y limpias
+    op.cuentas.forEach((nombreCta, i) => {
+      zonasVentas[i].classList.remove('step-hidden');
+      const numero = i === 0 ? '1' : i === 1 ? '2' : '3';
+      zoneLabelsVentas[i].innerHTML = `<span class="num">${numero}</span> Ventas de ${nombreCta}`;
+      zonas[clavesVentas[i]].defaultTitle = `Arrastrá el Excel de ${nombreCta}`;
+      if (!zonas[clavesVentas[i]].archivo){ zonas[clavesVentas[i]].title.textContent = zonas[clavesVentas[i]].defaultTitle; }
+    });
+    for (let i = op.cuentas.length; i < zonasVentas.length; i++){
+      zonasVentas[i].classList.add('step-hidden');
+      limpiarArchivo(clavesVentas[i]);
+    }
+
+    // Cobros: la 1ra cuenta siempre en la zona principal; la 2da y 3ra (si existen) como
+    // zonas extra dentro del mismo desplegable.
     zonaSettlement.classList.remove('step-hidden');
     const nombreCta1 = op.cuentas[0];
-    zoneLabel1.innerHTML = `<span class="num">1</span> Ventas de ${nombreCta1}`;
-    zonas.v1.defaultTitle = `Arrastrá el Excel de ${nombreCta1}`;
-    if (!zonas.v1.archivo){ zonas.v1.title.textContent = zonas.v1.defaultTitle; }
-
     if (op.cuentas.length > 1){
-      const nombreCta2 = op.cuentas[1];
-      zonaVentas2.classList.remove('step-hidden');
-      zoneLabel2.innerHTML = `<span class="num">2</span> Ventas de ${nombreCta2}`;
-      zonas.v2.defaultTitle = `Arrastrá el Excel de ${nombreCta2}`;
-      if (!zonas.v2.archivo){ zonas.v2.title.textContent = zonas.v2.defaultTitle; }
-
-      zoneLabelSettlement.innerHTML = `<span class="num">+</span> Cobros de ${nombreCta1} (opcional)`;
-      zonaSettlement2.classList.remove('step-hidden');
-      zoneLabelSettlement2.innerHTML = `<span class="num">+</span> Cobros de ${nombreCta2} (opcional)`;
-      zonas.settlement2.defaultTitle = `Arrastrá el reporte de ${nombreCta2}`;
-      if (!zonas.settlement2.archivo){ zonas.settlement2.title.textContent = zonas.settlement2.defaultTitle; }
+      zoneLabelSettlement.innerHTML = `<span class="chev"></span> ¿Querés agregar el reporte de Cobros de ${nombreCta1}? (opcional)`;
     } else {
-      zonaVentas2.classList.add('step-hidden');
-      limpiarArchivo('v2');
-      zoneLabelSettlement.innerHTML = `<span class="num">+</span> Cobros (opcional)`;
-      zonaSettlement2.classList.add('step-hidden');
-      limpiarArchivo('settlement2');
+      zoneLabelSettlement.innerHTML = `<span class="chev"></span> ¿Querés agregar el reporte de Cobros? (opcional)`;
+    }
+    // Cuentas 2 y 3 (si están en el combo elegido) usan las zonas extra de Cobros
+    for (let i = 1; i < op.cuentas.length; i++){
+      const idxExtra = i - 1; // cuenta 2 -> zonasCobros[0], cuenta 3 -> zonasCobros[1]
+      const nombreCta = op.cuentas[i];
+      zonasCobros[idxExtra].classList.remove('step-hidden');
+      zoneLabelsCobros[idxExtra].innerHTML = `<span class="num">+</span> Cobros de ${nombreCta} (opcional)`;
+      zonas[clavesCobros[idxExtra]].defaultTitle = `Arrastrá el reporte de ${nombreCta}`;
+      if (!zonas[clavesCobros[idxExtra]].archivo){ zonas[clavesCobros[idxExtra]].title.textContent = zonas[clavesCobros[idxExtra]].defaultTitle; }
+    }
+    for (let i = op.cuentas.length - 1; i < zonasCobros.length; i++){
+      zonasCobros[i].classList.add('step-hidden');
+      limpiarArchivo(clavesCobros[i]);
     }
   }
 
@@ -2593,27 +2630,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   }
 
-  // Pregunta si se descuenta el costo de cuotas del precio de venta antes de calcular la
-  // rentabilidad por producto. Devuelve true/false.
-  function mostrarModalCuotas(){
-    return new Promise((resolve) => {
-      const modal = document.getElementById('modal-cuotas');
-      const btnSi = document.getElementById('btn-cuotas-si');
-      const btnNo = document.getElementById('btn-cuotas-no');
-      modal.classList.remove('step-hidden');
-
-      function limpiar(){
-        modal.classList.add('step-hidden');
-        btnSi.removeEventListener('click', onSi);
-        btnNo.removeEventListener('click', onNo);
-      }
-      function onSi(){ limpiar(); resolve(true); }
-      function onNo(){ limpiar(); resolve(false); }
-      btnSi.addEventListener('click', onSi);
-      btnNo.addEventListener('click', onNo);
-    });
-  }
-
   function ocultarError(){ errorBox.classList.remove('show'); }
   function actualizarEstadoConexion(tipo, texto){
     statusConexion.classList.remove('step-hidden');
@@ -2624,8 +2640,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function actualizarBoton(){
     const op = opcionActual();
     const personaOk = !!op;
-    const necesitaV2 = op && op.cuentas.length > 1;
-    const archivosOk = zonas.v1.archivo && (!necesitaV2 || zonas.v2.archivo);
+    const zonasV = [zonas.v1, zonas.v2, zonas.v3];
+    const archivosOk = op && op.cuentas.every((_, i) => !!zonasV[i].archivo);
     processBtn.disabled = !(archivosOk && personaOk);
   }
 
@@ -2686,7 +2702,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const op = opcionActual();
       if (!op) throw new Error('Elegí quién sos antes de generar el reporte.');
       const multi = op.cuentas.length > 1;
-      const archivosPorCuenta = [zonas.v1.archivo, zonas.v2.archivo];
+      const archivosPorCuenta = [zonas.v1.archivo, zonas.v2.archivo, zonas.v3.archivo];
 
       actualizarEstadoConexion('loading', 'Conectando con la planilla de costos...');
       let costos;
@@ -2707,24 +2723,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const preciosCorregidosTotal = [];
       const sinVendedorTotal = new Set();
 
-      // Primera pasada: leer todos los archivos de ventas antes de procesarlos — hace
-      // falta saber si hay ventas en cuotas ANTES de calcular la rentabilidad, para poder
-      // preguntar y aplicar el descuento a tiempo (si corresponde).
       const leidosPorCuenta = [];
       for (let i = 0; i < op.cuentas.length; i++){
         const buf = await leerComoArrayBuffer(archivosPorCuenta[i]);
         leidosPorCuenta.push(leerVentas(buf));
-      }
-
-      // Cuotas: si hay ventas pagadas en cuotas, se pregunta si se quiere descontar ese
-      // costo del precio de venta antes de calcular la rentabilidad por producto — evita
-      // que esas ventas parezcan menos rentables por un margen que en los hechos no queda.
-      const hayCuotas = leidosPorCuenta.some(l => l.filas.some(f => f['Costo por ofrecer cuotas'] != null && f['Costo por ofrecer cuotas'] !== 0));
-      if (hayCuotas){
-        const descontarCuotas = await mostrarModalCuotas();
-        if (descontarCuotas){
-          for (const l of leidosPorCuenta) aplicarCostoCuotas(l.filas);
-        }
       }
 
       for (let i = 0; i < op.cuentas.length; i++){
@@ -2786,15 +2788,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           }
         }
 
-        // Cobros: la 1ra cuenta siempre; la 2da se suma si se cargó (modo combo)
+        // Cobros: la 1ra cuenta siempre; la 2da y 3ra se suman si se cargaron (modo combo)
         const bufSettlement = await leerComoArrayBuffer(zonas.settlement.archivo);
         const r1 = leerMovimientosPago(bufSettlement);
         let movimientos = r1.movimientos, cashbacks = r1.cashbacks;
-        if (zonas.settlement2.archivo){
-          const bufSettlement2 = await leerComoArrayBuffer(zonas.settlement2.archivo);
-          const r2 = leerMovimientosPago(bufSettlement2);
-          movimientos = movimientos.concat(r2.movimientos);
-          cashbacks = cashbacks.concat(r2.cashbacks);
+        for (const clave of ['settlement2', 'settlement3']){
+          if (zonas[clave].archivo){
+            const bufExtra = await leerComoArrayBuffer(zonas[clave].archivo);
+            const rExtra = leerMovimientosPago(bufExtra);
+            movimientos = movimientos.concat(rExtra.movimientos);
+            cashbacks = cashbacks.concat(rExtra.cashbacks);
+          }
         }
 
         const ultimaVenta = obtenerUltimaFechaVenta(cuentas);
@@ -2914,8 +2918,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   resetBtn.addEventListener('click', () => {
     limpiarArchivo('v1');
     limpiarArchivo('v2');
+    limpiarArchivo('v3');
     limpiarArchivo('settlement');
     limpiarArchivo('settlement2');
+    limpiarArchivo('settlement3');
     personaSelect.value = '';
     actualizarZonasSegunPersona();
     ocultarError();
