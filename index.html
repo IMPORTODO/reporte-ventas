@@ -1935,7 +1935,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   }
 
-  function construirAnalitica(wb, fuentes, terceros, bloquePrincipal, persona, gastoGrupalInfo, dueño){
+  function construirAnalitica(wb, fuentes, terceros, bloquePrincipal, persona, gastoGrupalInfo, dueño, nombresCuentas){
     const ws = wb.addWorksheet('Análisis general');
     ws.getColumn(1).width = 46;
     ws.getColumn(2).width = 20;
@@ -1988,27 +1988,50 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     // este número, que tiene que reflejar la facturación real/fiscal.
     const propioFacturacionF = suma(porFuente.map(pf => `SUMIFS(${pf.rIngresos},${pf.noExcluida},${pf.rDueño},"${dueño}")`));
     const ajenoFacturacionF = suma(porFuente.map(pf => `SUMIFS(${pf.rIngresos},${pf.noExcluida},${pf.rDueño},"<>${dueño}",${pf.rDueño},"<>")`));
+    // Facturación total (bruta) de CADA cuenta individual — una fórmula por fuente, sin sumar
+    // entre ellas, para el desglose por cuenta del cuadro informativo.
+    const facturacionPorCuentaF = porFuente.map(pf => `SUMIFS(${pf.rIngresos},${pf.noExcluida})`);
 
-    // ---- Cuadro informativo de cuotas (a la derecha, columna D) — puramente informativo ----
+    // ---- Cuadro informativo (a la derecha, columnas D/E) — puramente informativo ----
     ws.getColumn(4).width = 34;
-    ws.getColumn(5).width = 16;
-    const cuadroCuotas = [
-      ['Cantidad de ventas totales', { formula: cantidadVentasTotalF }, FMT_INT],
-      ['Cantidad de ventas en cuotas', { formula: cantidadVentasCuotasF }, FMT_INT],
-      ['Importe extra de facturación por agregar cuotas', { formula: importeExtraCuotasF }, FMT_MONEY],
-    ];
-    cuadroCuotas.forEach((fila, i) => {
-      const r = 3 + i;
-      const cLabel = ws.getCell(r, 4);
-      cLabel.value = fila[0];
-      cLabel.font = { name: FONT, size: 9.5, color: { argb: 'FF746B5C' } };
+    ws.getColumn(5).width = 18;
+
+    function seccionHeaderDE(filaDE, texto, fillColor, fontColor){
+      ws.mergeCells(filaDE, 4, filaDE, 5);
+      const cell = ws.getCell(filaDE, 4);
+      cell.value = texto;
+      cell.font = { name: FONT, size: 11, bold: true, color: { argb: fontColor } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } };
+      cell.alignment = { vertical: 'middle', indent: 1 };
+      ws.getRow(filaDE).height = 22;
+    }
+    function filaInfoDE(filaDE, etiqueta, valor, formato){
+      const cLabel = ws.getCell(filaDE, 4);
+      cLabel.value = etiqueta;
+      cLabel.font = { name: FONT, size: 10, color: { argb: 'FF4A4038' } };
       cLabel.border = BORDER;
-      const cVal = ws.getCell(r, 5);
-      cVal.value = fila[1];
-      cVal.font = { name: FONT, size: 10, bold: true };
-      cVal.numFmt = fila[2];
+      const cVal = ws.getCell(filaDE, 5);
+      cVal.value = valor;
+      cVal.font = { name: FONT, size: 12.5, bold: true, color: { argb: COLOR_MARCA } };
+      cVal.numFmt = formato;
       cVal.alignment = { horizontal: 'center' };
       cVal.border = BORDER;
+      if (filaDE % 2 === 0){ cLabel.fill = BAND_FILL; cVal.fill = BAND_FILL; }
+    }
+
+    let filaDE = 3;
+    seccionHeaderDE(filaDE, 'RESUMEN DE CUOTAS', COLOR_MARCA, 'FFFFFFFF');
+    filaDE += 1;
+    filaInfoDE(filaDE, 'Cantidad de ventas totales', { formula: cantidadVentasTotalF }, FMT_INT); filaDE += 1;
+    filaInfoDE(filaDE, 'Cantidad de ventas en cuotas', { formula: cantidadVentasCuotasF }, FMT_INT); filaDE += 1;
+    filaInfoDE(filaDE, 'Importe extra de facturación por agregar cuotas', { formula: importeExtraCuotasF }, FMT_MONEY); filaDE += 1;
+
+    filaDE += 1; // fila en blanco de separación
+    seccionHeaderDE(filaDE, 'FACTURACIÓN POR CUENTA', 'FFB8894A', 'FFFFFFFF');
+    filaDE += 1;
+    nombresCuentas.forEach((nombreCuenta, i) => {
+      filaInfoDE(filaDE, nombreCuenta, { formula: facturacionPorCuentaF[i] }, FMT_MONEY);
+      filaDE += 1;
     });
 
     // ---- Helpers de layout ----
@@ -2423,7 +2446,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const resumenTercerosFinal = multi ? unificado.resumenTerceros : cuentas[0].resumenTerceros;
     const terceros = construirTerceros(wb, resumenTercerosFinal, fuentes, persona);
 
-    const wsAnalitica = construirAnalitica(wb, fuentes, terceros, bloquePrincipal, persona, gastoGrupalInfo, dueño);
+    const wsAnalitica = construirAnalitica(wb, fuentes, terceros, bloquePrincipal, persona, gastoGrupalInfo, dueño, cuentas.map(c => c.nombre));
 
     let ventasFlexPromedio = ventasFlexPromedioDirecto || null;
     if (input.existencias){
