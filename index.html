@@ -1471,11 +1471,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const reglas = excepciones && excepciones[normalizar(producto)];
       if (reglas){
         const fechaVentaMs = parsearFechaVenta(f["Fecha de venta"]);
-        const reglaAplicable = reglas.find(regla => {
+        const aplicables = reglas.filter(regla => {
           const dentroDesde = regla.desdeMs == null || (fechaVentaMs != null && fechaVentaMs >= regla.desdeMs);
           const dentroHasta = regla.hastaMs == null || (fechaVentaMs != null && fechaVentaMs <= regla.hastaMs);
           return dentroDesde && dentroHasta;
         });
+        // Si hay varias excepciones superpuestas para esta fecha, la que coincide con quien
+        // está generando el reporte tiene prioridad — así esa persona ve la venta como
+        // propia sin depender del orden en que estén cargadas las filas en la hoja.
+        const reglaAplicable = aplicables.find(regla => regla.vendedor === personaSeleccionada) || aplicables[0];
         if (reglaAplicable) f["_suplente"] = reglaAplicable.vendedor;
       }
     }
