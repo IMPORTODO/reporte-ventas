@@ -676,46 +676,61 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return encabezado.findIndex(h => alias.includes(normalizar(h)));
   }
 
-  const ALIAS_SUPLENTE = ['suplente'];
-  const ALIAS_FECHA_DESDE = ['fecha desde', 'desde'];
-  const ALIAS_FECHA_HASTA = ['fecha hasta', 'hasta'];
-
   function mapeoDesdeFilas(filasMapeo){
     if (filasMapeo.length === 0) throw new Error('la hoja de mapeo está vacía');
     const encMapeo = filasMapeo[0].map(String);
     const idxTitulo = encontrarColumna(encMapeo, ALIAS_TITULO_PUBLICACION);
     const idxOriginal = encontrarColumna(encMapeo, ALIAS_TITULO_ORIGINAL);
     if (idxTitulo === -1 || idxOriginal === -1) throw new Error('no se identificaron las columnas de mapeo. Columnas encontradas: [' + encMapeo.join(' | ') + ']');
-    // Opcional: "Suplente" — un vendedor que pidió prestado el PRODUCTO (no una publicación
-    // puntual: aplica a todas sus publicaciones) durante un rango de fechas — sus ventas en
-    // ese lapso se tratan como propias de él (o su cuenta secundaria), aunque el titular
-    // real en TITULARES sea otra persona. Sin fecha Desde/Hasta cargada, aplica siempre. Si
-    // la hoja no tiene estas columnas, el mapeo funciona igual que siempre (sin excepciones).
-    const idxSuplente = encontrarColumna(encMapeo, ALIAS_SUPLENTE);
-    const idxDesde = encontrarColumna(encMapeo, ALIAS_FECHA_DESDE);
-    const idxHasta = encontrarColumna(encMapeo, ALIAS_FECHA_HASTA);
     const mapping = {};
-    const suplentes = {}; // clave: producto (normalizado) -> { nombre, desdeMs, hastaMs }
     for (let i = 1; i < filasMapeo.length; i++){
       const fila = filasMapeo[i];
       const titulo = fila[idxTitulo];
       if (esVacio(titulo)) continue;
-      const original = fila[idxOriginal];
-      mapping[normalizar(titulo)] = original;
-      if (idxSuplente !== -1 && !esVacio(fila[idxSuplente]) && !esVacio(original)){
-        const claveProducto = normalizar(original);
-        if (!suplentes[claveProducto]){
-          const hastaMs = idxHasta !== -1 ? parsearFechaGviz(fila[idxHasta]) : null;
-          suplentes[claveProducto] = {
-            nombre: String(fila[idxSuplente]).trim().toUpperCase(),
-            desdeMs: idxDesde !== -1 ? parsearFechaGviz(fila[idxDesde]) : null,
-            // "Hasta" es inclusivo de todo ese día — se le suma el resto del día (23:59:59)
-            hastaMs: hastaMs != null ? hastaMs + 24 * 60 * 60 * 1000 - 1 : null,
-          };
-        }
-      }
+      mapping[normalizar(titulo)] = fila[idxOriginal];
     }
-    return { mapping, suplentes };
+    return mapping;
+  }
+
+  // Opcional: hoja "EXCEPCIONES" — Fecha Desde, Fecha Hasta, Vendedor, Artículo. Un vendedor
+  // que pidió prestado un PRODUCTO (no una publicación puntual: aplica a todas sus
+  // publicaciones) durante un rango de fechas — sus ventas en ese lapso se tratan como
+  // propias de él (o su cuenta secundaria), aunque el titular real en TITULARES sea otra
+  // persona. Un mismo producto puede tener varias excepciones en distintos períodos (ej:
+  // prestado a ANA en agosto, a SURAK en septiembre). Sin fecha Desde/Hasta cargada en una
+  // fila puntual, esa excepción aplica siempre. Si la hoja no existe, no hay excepciones.
+  const ALIAS_EXC_DESDE = ['fecha desde', 'desde'];
+  const ALIAS_EXC_HASTA = ['fecha hasta', 'hasta'];
+  const ALIAS_EXC_VENDEDOR = ['vendedor'];
+  const ALIAS_EXC_ARTICULO = ['articulo', 'artículo', 'producto original', 'producto'];
+
+  function excepcionesDesdeFilas(filas){
+    if (!filas || filas.length === 0) return null;
+    const encabezado = filas[0].map(c => String(c).trim());
+    const idxDesde = encontrarColumna(encabezado, ALIAS_EXC_DESDE);
+    const idxHasta = encontrarColumna(encabezado, ALIAS_EXC_HASTA);
+    const idxVendedor = encontrarColumna(encabezado, ALIAS_EXC_VENDEDOR);
+    const idxArticulo = encontrarColumna(encabezado, ALIAS_EXC_ARTICULO);
+    if (idxVendedor === -1 || idxArticulo === -1) return null;
+
+    const excepciones = {}; // producto (normalizado) -> [{desdeMs, hastaMs, vendedor}, ...]
+    for (let i = 1; i < filas.length; i++){
+      const fila = filas[i];
+      const articulo = fila[idxArticulo];
+      const vendedor = fila[idxVendedor];
+      if (esVacio(articulo) || esVacio(vendedor)) continue;
+      const clave = normalizar(articulo);
+      const hastaMs = idxHasta !== -1 ? parsearFechaGviz(fila[idxHasta]) : null;
+      const regla = {
+        desdeMs: idxDesde !== -1 ? parsearFechaGviz(fila[idxDesde]) : null,
+        // "Hasta" es inclusivo de todo ese día — se le suma el resto del día (23:59:59)
+        hastaMs: hastaMs != null ? hastaMs + 24 * 60 * 60 * 1000 - 1 : null,
+        vendedor: String(vendedor).trim().toUpperCase(),
+      };
+      if (!excepciones[clave]) excepciones[clave] = [];
+      excepciones[clave].push(regla);
+    }
+    return Object.keys(excepciones).length ? excepciones : null;
   }
 
   function titularesDesdeFilas(filasTit){
@@ -889,15 +904,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   async function leerCostosDesdeGoogle(sheetId){
     let mapping = null;
-    let suplentes = null;
     let ultimoError = null;
     for (const candidato of MAPING_CANDIDATES_ORIGINALES){
       try {
         const table = await fetchHojaJSON(sheetId, candidato);
         const filas = tablaAAOA(table);
-        const resultadoMapeo = mapeoDesdeFilas(filas); // tira error si las columnas no matchean -> probamos el siguiente candidato
-        mapping = resultadoMapeo.mapping;
-        suplentes = resultadoMapeo.suplentes;
+        mapping = mapeoDesdeFilas(filas); // tira error si las columnas no matchean -> probamos el siguiente candidato
         break;
       } catch (e) { ultimoError = e; }
     }
@@ -905,6 +917,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     const tableTit = await fetchHojaJSON(sheetId, 'TITULARES');
     const { titulares, vendedores } = titularesDesdeFilas(tablaAAOA(tableTit));
+
+    // Excepciones de titularidad (hoja EXCEPCIONES): opcional — un producto de otro
+    // vendedor que, durante un período puntual, se vende como propio (préstamo de
+    // mercadería). Si no está, funciona igual que siempre (sin excepciones).
+    let excepciones = null;
+    try {
+      const tableExc = await fetchHojaJSON(sheetId, 'EXCEPCIONES');
+      excepciones = excepcionesDesdeFilas(tablaAAOA(tableExc));
+    } catch (e) { /* sin esta hoja, se sigue sin excepciones */ }
 
     // Historial de costos por fecha (hoja PEDIDOS): opcional — si no está, cada producto
     // sigue usando el costo único y actual de TITULARES, como siempre.
@@ -942,7 +963,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       } catch (e) { /* esta hoja de zona no está o no es accesible — se sigue con las demás */ }
     }
 
-    return { mapping, suplentes, titulares, vendedores, pedidos, gastosGrupales, logisticaPorCP };
+    return { mapping, excepciones, titulares, vendedores, pedidos, gastosGrupales, logisticaPorCP };
   }
 
   // "devolveremos": cubre el caso de "no pudimos entregar el producto, te lo devolveremos"
@@ -1418,7 +1439,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   function combinarVentasYCostos(filas, desglosePresentes, costos, personaSeleccionada){
-    const { mapping, suplentes, titulares, vendedores, pedidos } = costos;
+    const { mapping, excepciones, titulares, vendedores, pedidos } = costos;
     const sinMapeo = new Set();
     const sinCosto = new Set();
 
@@ -1441,16 +1462,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       f["_costo"] = costo;
       if (f["_costo"] === null) sinCosto.add(producto);
 
-      // Suplente: aplica a nivel PRODUCTO (todas sus publicaciones), no a una publicación
-      // puntual — préstamo momentáneo entre vendedores. Si tiene rango de fechas cargado,
-      // solo pisa al titular real dentro de ese rango; sin fechas, aplica siempre.
+      // Excepción de titularidad: aplica a nivel PRODUCTO (todas sus publicaciones), no a
+      // una publicación puntual — préstamo momentáneo entre vendedores. Un mismo producto
+      // puede tener varias excepciones en distintos períodos (ej: prestado a ANA en agosto,
+      // a SURAK en septiembre) — se busca cuál de todas cae dentro de la fecha de ESTA
+      // venta puntual. Sin fecha Desde/Hasta cargada en una regla, esa aplica siempre.
       f["_suplente"] = null;
-      const regla = suplentes && suplentes[normalizar(producto)];
-      if (regla){
+      const reglas = excepciones && excepciones[normalizar(producto)];
+      if (reglas){
         const fechaVentaMs = parsearFechaVenta(f["Fecha de venta"]);
-        const dentroDesde = regla.desdeMs == null || (fechaVentaMs != null && fechaVentaMs >= regla.desdeMs);
-        const dentroHasta = regla.hastaMs == null || (fechaVentaMs != null && fechaVentaMs <= regla.hastaMs);
-        if (dentroDesde && dentroHasta) f["_suplente"] = regla.nombre;
+        const reglaAplicable = reglas.find(regla => {
+          const dentroDesde = regla.desdeMs == null || (fechaVentaMs != null && fechaVentaMs >= regla.desdeMs);
+          const dentroHasta = regla.hastaMs == null || (fechaVentaMs != null && fechaVentaMs <= regla.hastaMs);
+          return dentroDesde && dentroHasta;
+        });
+        if (reglaAplicable) f["_suplente"] = reglaAplicable.vendedor;
       }
     }
 
