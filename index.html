@@ -1621,7 +1621,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       headers.forEach(h => {
         const cell = ws.getCell(r, col[h]);
         if (h === 'Venta por unidad'){
-          cell.value = { formula: `${fCol}${r}/${uCol}${r}` };
+          // IFERROR por las filas "Paquete de X productos" que a veces trae Meli, sin
+          // desglose de unidades (Unidades = 0) pero con el ingreso del paquete completo.
+          cell.value = { formula: `IFERROR(${fCol}${r}/${uCol}${r},"")` };
         } else if (h === '# de venta'){
           cell.value = f['# de venta'];
           cell.numFmt = '@';
@@ -1630,7 +1632,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         } else if (h === 'Dueño'){
           // Vendedor real de ESTA venta puntual (respeta el préstamo por Suplente) — se usa
           // para separar facturación propia/ajena directo, sin pasar por Venta promedio.
-          cell.value = f['_duenoEfectivo'] || '';
+          // null (no '') para que la celda quede genuinamente en blanco — un string vacío
+          // sigue contando como "no vacío" para el criterio "<>" de SUMIFS, y una venta sin
+          // producto mapeado terminaba cayendo en facturación de terceros por error.
+          cell.value = f['_duenoEfectivo'] || null;
         } else {
           cell.value = f[h] === undefined ? null : f[h];
         }
